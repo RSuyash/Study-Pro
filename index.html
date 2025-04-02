@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyTrack Pro - IB Syllabus</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <!-- Auth Modal (Combined Login/Register) -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form active" onsubmit="return false;">
+                <h2>Login</h2>
+                <div class="form-group">
+                    <label for="login-identifier">Username or Email:</label>
+                    <input type="text" id="login-identifier" placeholder="Enter username or email" required autocomplete="username"> <!-- Added autocomplete -->
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password:</label>
+                    <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password"> <!-- Added autocomplete -->
+                </div>
+                <button type="button" id="login-button">Login</button>
+                <p id="login-error" class="error-message"></p>
+                <p class="switch-form-text">Don't have an account? <button type="button" class="link-button" id="show-register-form">Register here</button></p>
+            </form>
+
+            <!-- Registration Form -->
+            <form id="register-form" class="auth-form" onsubmit="return false;">
+                 <h2>Register</h2>
+                 <div class="form-group">
+                    <label for="register-username">Username:</label>
+                    <input type="text" id="register-username" placeholder="Choose a username (min 3 chars)" required autocomplete="username"> <!-- Added autocomplete -->
+                 </div>
+                 <div class="form-group">
+                    <label for="register-email">Email:</label>
+                    <input type="email" id="register-email" placeholder="Enter your email" required autocomplete="email"> <!-- Added autocomplete -->
+                 </div>
+                <div class="form-group">
+                    <label for="register-password">Password:</label>
+                    <input type="password" id="register-password" placeholder="Choose a password (min 6 chars)" required autocomplete="new-password"> <!-- Added autocomplete -->
+                </div>
+                 <div class="form-group">
+                    <label for="register-confirm-password">Confirm Password:</label>
+                    <input type="password" id="register-confirm-password" placeholder="Re-enter password" required autocomplete="new-password"> <!-- Added autocomplete -->
+                 </div>
+                <button type="button" id="register-button">Register</button>
+                <p id="register-error" class="error-message"></p>
+                 <p id="register-success" class="success-message"></p>
+                <p class="switch-form-text">Already have an account? <button type="button" class="link-button" id="show-login-form">Login here</button></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="app-container" class="hidden">
+        <header>
+            <h1>StudyTrack Pro</h1> <!-- Removed specific syllabus tag -->
+            <div class="user-info">
+                Welcome, <span id="display-username">User</span>!
+                <button id="logout-button">Logout</button>
+            </div>
+        </header>
+
+        <!-- Top Navigation -->
+        <nav class="top-nav">
+            <button class="nav-button active" data-view="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+            <button class="nav-button" data-view="topics"><i class="fas fa-edit"></i> Update Progress</button>
+            <button class="nav-button" data-view="leaderboard"><i class="fas fa-trophy"></i> Leaderboard</button>
+        </nav>
+
+        <main id="main-content">
+            <!-- View: Dashboard -->
+            <div id="view-dashboard" class="view active">
+                <section>
+                    <h2>Your Data</h2>
+                    <div class="stats">
+                        <div class="stat-card"><h3>Topics Mastered</h3><p id="topics-completed">0 / 0</p></div>
+                        <div class="stat-card"><h3>Current Score</h3><p id="current-score">0</p></div>
+                        <div class="stat-card"><h3>Your Rank</h3><p id="user-rank">N/A</p></div>
+                    </div>
+                    <div class="charts-container">
+                         <div class="chart-card"><h3>Progress by Unit</h3><div class="chart-wrapper"><canvas id="unitProgressChart"></canvas></div></div>
+                         <div class="chart-card"><h3>Status Distribution</h3><div class="chart-wrapper"><canvas id="statusDistributionChart"></canvas></div></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- View: Topics (Data Filling) -->
+            <div id="view-topics" class="view">
+                <section>
+                    <h2>Update Progress</h2> <!-- Generic heading -->
+                    <!-- Unit navigation removed -->
+                    <div id="topic-list-container"><p>Loading topics...</p></div>
+                </section>
+            </div>
+
+            <!-- View: Leaderboard -->
+            <div id="view-leaderboard" class="view">
+                 <section>
+                     <h2>Leaderboard</h2>
+                     <div id="leaderboard-container">
+                         <table id="leaderboard-table">
+                             <thead><tr><th>Rank</th><th>Username</th><th>Score</th></tr></thead>
+                             <tbody id="leaderboard-body"><tr><td colspan="3">Loading...</td></tr></tbody>
+                         </table>
+                         <button id="refresh-leaderboard"><i class="fas fa-sync-alt"></i> Refresh</button>
+                     </div>
+                 </section>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 StudyTrack Pro. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

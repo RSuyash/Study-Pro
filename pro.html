@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaTrack Pro v2.3 - SB-02 Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* CSS styles remain largely the same as v2.2 (Mobile Optimized Card UI) */
+        /* Minor adjustments if needed based on testing */
+        :root { /* CSS Variables */
+             --bg-color: #f8f9fa; --primary-text: #2c3e50; --secondary-text: #7f8c8d; --accent-color: #3498db;
+             --accent-hover: #2980b9; --card-bg: #ffffff; --card-border: #dee2e6; --header-bg: #e9ecef;
+             --link-color: #3498db; --danger-color: #e74c3c; --warning-color: #f39c12; --success-color: #2ecc71;
+             --info-color: #3498db; --mastered-color: #9b59b6; --font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+             --star-inactive: #bdc3c7; --star-active: #f1c40f;
+         }
+         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+         html { scroll-behavior: smooth; }
+         body { /* Base styles */
+             font-family: var(--font-family); line-height: 1.6; background-color: var(--bg-color); color: var(--primary-text);
+             display: flex; flex-direction: column; min-height: 100vh; font-size: 16px; -webkit-text-size-adjust: 100%;
+         }
+         #login-modal { /* Login Modal Styling */
+             position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px);
+             display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; /* Hidden initially */
+             transition: opacity 0.3s ease, visibility 0s linear 0.3s; padding: 15px;
+         }
+         #login-modal.visible { opacity: 1; visibility: visible; transition: opacity 0.3s ease, visibility 0s linear 0s; }
+         .login-container { /* Login Box Styling */
+             background-color: var(--card-bg); padding: 25px 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+             text-align: center; max-width: 400px; width: 100%; transform: scale(0.95); transition: transform 0.3s ease;
+         }
+        #login-modal.visible .login-container { transform: scale(1); }
+        .login-container h2 { margin-bottom: 15px; font-size: 1.5em; }
+        .login-container p { margin-bottom: 20px; color: var(--secondary-text); font-size: 0.95em; }
+        .login-container label { display: block; margin-bottom: 5px; text-align: left; font-weight: 500; font-size: 0.9em; }
+        .login-container select, .login-container input[type="password"] { /* Form elements */
+              width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid var(--card-border); border-radius: 5px; font-size: 1em; background-color: #fff;
+         }
+        .login-container button { /* Button */
+              padding: 10px 20px; background-color: var(--accent-color); color: white; border: none; border-radius: 5px;
+              font-size: 1em; cursor: pointer; transition: background-color 0.2s ease; width: 100%;
+         }
+        .login-container button:hover { background-color: var(--accent-hover); }
+        #login-error { color: var(--danger-color); font-size: 0.9em; margin-top: 10px; min-height: 1.2em; }
+        .password-warning { font-size: 0.8em; color: var(--secondary-text); margin-top: -10px; margin-bottom: 15px; }
+
+         .container { /* Main content area */
+             max-width: 1500px; margin: 15px auto; padding: 15px; background-color: var(--card-bg); border-radius: 12px;
+             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08); flex-grow: 1; display: none; flex-direction: column;
+         }
+         .container.visible { display: flex; }
+         header { /* Header styles */
+             display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+             margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 15px;
+         }
+         header h1 { font-size: 1.6em; font-weight: 600; margin: 0; }
+         #welcome-message { color: var(--secondary-text); font-size: 0.95em; flex-basis: 100%; order: 1; }
+         #logout-button { /* Logout Button */
+             padding: 7px 12px; background-color: var(--danger-color); color: white; border: none; border-radius: 5px;
+             cursor: pointer; transition: background-color 0.2s; font-size: 0.85em;
+         }
+         #logout-button:hover { background-color: #c0392b; }
+
+         .top-section { /* Dashboard Grid */
+             display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;
+             margin-bottom: 25px; padding-bottom: 25px; border-bottom: 1px solid var(--card-border);
+         }
+         .widget { /* Dashboard Widget Card */
+             background-color: var(--bg-color); padding: 15px; border-radius: 8px; border: 1px solid var(--card-border);
+             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04); display: flex; flex-direction: column;
+         }
+         .widget h3 { /* Widget Title */
+             margin-bottom: 15px; font-size: 1.1em; color: var(--primary-text); text-align: center; font-weight: 500;
+             border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; /* Center title with icon */
+         }
+         .chart-container { position: relative; min-height: 200px; width: 100%; flex-grow: 1; }
+         #focus-topics-list, #leaderboard-list { /* Lists in widgets */
+             list-style: none; padding-left: 0; max-height: 180px; overflow-y: auto; flex-grow: 1; font-size: 0.9em;
+         }
+         #focus-topics-list li, #leaderboard-list li { /* List items */
+             padding: 6px 5px; border-bottom: 1px dashed #eee; color: #555; display: flex; justify-content: space-between; align-items: center;
+         }
+         #focus-topics-list li:last-child, #leaderboard-list li:last-child { border-bottom: none; }
+         #focus-topics-list span, #leaderboard-list .leader-name { font-weight: 500; }
+         #focus-topics-list span { color: var(--danger-color); margin-right: 5px; }
+         #leaderboard-list .leader-score { font-weight: bold; color: var(--accent-color); font-size: 0.95em; }
+         .leader-rank { font-weight: bold; margin-right: 8px; min-width: 18px; text-align: right; font-size: 0.9em;}
+
+         .topic-list-section { margin-bottom: 25px; } /* Topic Card Section */
+         .topic-list-section h2 { text-align: center; color: var(--primary-text); margin-bottom: 15px; font-size: 1.3em; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; }
+         #topic-list-container { display: grid; grid-template-columns: 1fr; gap: 15px; }
+         @media (min-width: 600px) { #topic-list-container { grid-template-columns: repeat(2, 1fr); } } /* 2 columns tablet */
+         @media (min-width: 1000px) { #topic-list-container { grid-template-columns: repeat(3, 1fr); } } /* 3 columns desktop */
+         @media (min-width: 1400px) { #topic-list-container { grid-template-columns: repeat(4, 1fr); } } /* 4 columns large desktop */
+
+         .topic-card { /* Individual Topic Card */
+             background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 8px; padding: 15px;
+             box-shadow: 0 3px 8px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 12px; transition: box-shadow 0.2s ease;
+         }
+         .topic-card:hover { box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+         .topic-header { display: flex; flex-direction: column; } /* Card Header */
+         .topic-name { font-weight: 600; font-size: 1.0em; color: var(--primary-text); margin-bottom: 2px; }
+         .unit-name { font-size: 0.8em; color: var(--secondary-text); }
+         .controls-section { /* Card Controls Area */
+             display: flex; flex-direction: column; gap: 12px; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 12px 0;
+         }
+         .status-control, .confidence-control { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+         .control-label { font-size: 0.8em; font-weight: 500; color: var(--secondary-text); margin-right: 8px; min-width: 60px; }
+         .status-button { /* Status Buttons */
+             padding: 4px 9px; border: 1px solid var(--card-border); border-radius: 15px; cursor: pointer; font-size: 0.75em;
+             background-color: #f0f0f0; color: #555; transition: all 0.2s ease; white-space: nowrap;
+         }
+         .status-button:hover { background-color: #e0e0e0; }
+         /* Active Status Button Styles */
+         .status-button.active[data-status-key="not_started"] { background-color: var(--danger-color); color: white; border-color: var(--danger-color);}
+         .status-button.active[data-status-key="reviewing"] { background-color: var(--warning-color); color: white; border-color: var(--warning-color);}
+         .status-button.active[data-status-key="practicing"] { background-color: var(--info-color); color: white; border-color: var(--info-color);}
+         .status-button.active[data-status-key="confident"] { background-color: var(--success-color); color: white; border-color: var(--success-color);}
+         .status-button.active[data-status-key="mastered"] { background-color: var(--mastered-color); color: white; border-color: var(--mastered-color);}
+         .confidence-stars i { /* Confidence Stars */
+             font-size: 1.3em; color: var(--star-inactive); cursor: pointer; margin-right: 3px; transition: color 0.2s ease, transform 0.1s ease;
+         }
+         .confidence-stars i:hover { transform: scale(1.15); }
+         .confidence-stars i.active { color: var(--star-active); }
+         .topic-footer { text-align: right; margin-top: 5px; } /* Card Footer */
+         .last-updated { font-size: 0.75em; color: #a0a0a0; }
+
+         .resource-section { /* Resource Links */
+              text-align: center; padding: 15px; background-color: var(--bg-color); border-radius: 8px; border: 1px solid var(--card-border); margin-bottom: 25px;
+         }
+         .resource-section h2 { margin-bottom: 15px; font-size: 1.2em; font-weight: 600; color: var(--primary-text); display: flex; align-items: center; justify-content: center; gap: 8px;}
+         .resource-links a { display: inline-block; margin: 5px; padding: 8px 15px; background-color: var(--accent-color); color: white; text-decoration: none; border-radius: 5px; transition: background-color 0.2s ease; font-size: 0.9em; }
+         .resource-links a:hover { background-color: var(--accent-hover); }
+         .resource-links i { margin-right: 6px; }
+
+         footer { /* Footer */
+             text-align: center; margin-top: auto; padding: 15px 0 10px 0; border-top: 1px solid var(--card-border); font-size: 0.85em; color: #95a5a6;
+         }
+         /* Responsive Adjustments */
+         @media (min-width: 768px) { body { font-size: 17px; } header h1 { font-size: 1.8em; } }
+         @media (min-width: 992px) { header { flex-wrap: nowrap; } #welcome-message { flex-basis: auto; order: 0; margin-left: 15px;} }
+         @media (max-width: 480px) { body { font-size: 15px; } .container { padding: 10px; margin: 10px; } .widget h3, .topic-list-section h2, .resource-section h2 { font-size: 1.1em; } .topic-name { font-size: 0.95em; } }
+    </style>
+</head>
+<body>
+
+    <!-- Login Modal -->
+    <div id="login-modal">
+        <div class="login-container">
+            <h2>Welcome!</h2>
+            <p>Select name & enter password (if set).</p>
+            <div><label for="user-select">Name:</label><select id="user-select" name="user-select"><option value="">-- Select --</option></select></div>
+            <div><label for="password-input">Password:</label><input type="password" id="password-input" name="password-input"><p class="password-warning">Only needed if set in passwords.json.</p></div>
+            <div id="login-error"></div>
+            <button id="login-button">Start Tracking <i class="fas fa-arrow-right"></i></button>
+        </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div class="container" id="main-container">
+        <header>
+             <div><h1>PharmaTrack Pro <span style="font-size: 0.7em; font-weight: 400;">(SB-02)</span></h1><span id="welcome-message"></span></div>
+            <button id="logout-button" title="Logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </header>
+        <main>
+            <section class="top-section">
+                <div class="widget"><h3 class="chart-title"><i class="fas fa-tachometer-alt"></i> Progress</h3><div class="chart-container"><canvas id="progressChart"></canvas></div></div>
+                <div class="widget"><h3 class="chart-title"><i class="fas fa-tasks"></i> Status</h3><div class="chart-container"><canvas id="statusChart"></canvas></div></div>
+                <div class="widget"><h3 class="chart-title"><i class="fas fa-brain"></i> Confidence</h3><div class="chart-container"><canvas id="confidenceChart"></canvas></div></div>
+                 <div class="widget"><h3 class="chart-title"><i class="fas fa-star"></i> Leaderboard</h3><ul id="leaderboard-list"><li>Loading...</li></ul></div>
+                <div class="widget"><h3 class="chart-title"><i class="fas fa-bullseye"></i> Focus Topics</h3><ul id="focus-topics-list"><li>Loading...</li></ul></div>
+            </section>
+             <section class="resource-section">
+                 <h2><i class="fas fa-link"></i> Quick Resources</h2>
+                 <div class="resource-links">
+                     <a href="https://rsuyash.super.site" target="_blank" id="notes-link"><i class="fas fa-book-open"></i> Notes</a>
+                     <a href="https://www.youtube.com/@SuyashRahegaonkar" target="_blank" id="podcast-link"><i class="fas fa-podcast"></i> Podcast</a>
+                 </div>
+             </section>
+            <section class="topic-list-section">
+                <h2><i class="fas fa-list-check"></i> Topic Mastery Tracker</h2>
+                <div id="topic-list-container"><p style="text-align:center; padding: 20px; color: var(--secondary-text);">Loading topics...</p></div>
+            </section>
+        </main>
+    </div>
+     <footer> PharmaTrack Pro v2.3 | Local Data Storage </footer>
+
+    <script>
+        // --- CONFIGURATION (User List, Syllabus Config remain the same) --- //
+        const userList = [ /* USER LIST */ ];
+        const syllabusConfig = [ /* SB-02 SYLLABUS */ ];
+        const statusLevels = { /* Status Levels */ };
+        const statusOrder = ['not_started', 'reviewing', 'practicing', 'confident', 'mastered'];
+        const confidenceLevels = [1, 2, 3, 4, 5];
+        const LOCAL_STORAGE_PREFIX = 'pharmaTrackProV2.3_SB02_'; // Updated prefix
+        const LEADERBOARD_KEY = LOCAL_STORAGE_PREFIX + 'leaderboard';
+        const PASSWORD_FILE = 'passwords.json';
+
+        // --- Global State & Chart Instances --- //
+        let currentUser = null; let passwordsData = {}; let syllabusState = [];
+        let leaderboardData = []; let progressChartInstance = null;
+        let statusChartInstance = null; let confidenceChartInstance = null;
+
+        // --- DOM Elements --- //
+        const loginModal = document.getElementById('login-modal');
+        const userSelect = document.getElementById('user-select');
+        const passwordInput = document.getElementById('password-input');
+        const loginButton = document.getElementById('login-button');
+        const loginError = document.getElementById('login-error');
+        const mainContainer = document.getElementById('main-container');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const logoutButton = document.getElementById('logout-button');
+        const topicListContainer = document.getElementById('topic-list-container');
+        const focusTopicsList = document.getElementById('focus-topics-list');
+        const leaderboardList = document.getElementById('leaderboard-list');
+
+        // --- Initialization --- //
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log("DOM Loaded. Initializing...");
+            showLoginModal(); // Show login immediately
+            populateUserDropdown();
+            try {
+                await fetchPasswords(); // Fetch passwords
+                loadLeaderboard();
+                loginButton.addEventListener('click', handleLogin);
+                logoutButton.addEventListener('click', handleLogout);
+
+                // Auto-login check *after* passwords fetched
+                const lastUser = localStorage.getItem(LOCAL_STORAGE_PREFIX + 'lastUser');
+                if (lastUser) {
+                    console.log("Attempting auto-login for:", lastUser);
+                    // Attempt auto-login (no password needed for auto, relies on previous successful login)
+                    attemptLogin(lastUser, '', true);
+                } else {
+                     console.log("No last user found, showing login modal.");
+                    showLoginModal(); // Ensure login is visible if no auto-login
+                }
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                // Display a user-friendly error if needed, though console is primary for dev
+                loginError.textContent = "Initialization error. Check console.";
+                showLoginModal(); // Ensure login modal is visible even on error
+            }
+        });
+
+        // --- UI Visibility --- //
+        function showLoginModal() {
+            mainContainer.classList.remove('visible');
+            loginModal.classList.add('visible');
+             // Reset login form state
+             userSelect.value = '';
+             passwordInput.value = '';
+             loginError.textContent = '';
+             console.log("Login modal shown.");
+        }
+
+        function showMainApp() {
+            loginModal.classList.remove('visible');
+            mainContainer.classList.add('visible');
+             console.log("Main app shown.");
+        }
+
+
+        // --- Password Fetching --- //
+        async function fetchPasswords() {
+            try {
+                const response = await fetch(PASSWORD_FILE);
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        console.warn(`${PASSWORD_FILE} not found. No passwords required.`);
+                        passwordsData = {}; return; // Important: Reset passwordsData
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                passwordsData = await response.json();
+                console.log("Password data loaded.");
+            } catch (error) {
+                console.error("Could not fetch or parse passwords file:", error);
+                passwordsData = {}; // Ensure it's an object even on error
+            }
+        }
+
+
+        // --- Login/User Management --- //
+        function populateUserDropdown() { /* Remains the same */
+             try { userList.sort().forEach(name => { const option = document.createElement('option'); option.value = name; option.textContent = name; userSelect.appendChild(option); }); }
+             catch (e) { console.error("Error populating user dropdown:", e); }
+         }
+
+        function handleLogin() {
+            const selectedUser = userSelect.value;
+            const enteredPassword = passwordInput.value;
+            loginError.textContent = '';
+
+            if (!selectedUser) { loginError.textContent = 'Please select your name.'; return; }
+
+            // Check password using fetched data IF user exists in passwordsData
+            if (passwordsData[selectedUser]) { // Check if password is required for this user
+                if (enteredPassword !== passwordsData[selectedUser]) {
+                    loginError.textContent = 'Incorrect password.';
+                    return; // Stop login
+                }
+            }
+            // If user not in passwordsData or password is correct, proceed
+            attemptLogin(selectedUser, '', false); // Pass empty password, flag as manual login
+        }
+
+        function attemptLogin(username, password /* not used for check here */, isAutoLogin) {
+             console.log(`Attempting login for ${username}, auto: ${isAutoLogin}`);
+             // Password check for manual login is now done in handleLogin BEFORE calling this
+             currentUser = username;
+             welcomeMessage.textContent = `Welcome, ${currentUser.split(' ')[0]}!`; // Show first name
+
+             try {
+                 const userStorageKey = LOCAL_STORAGE_PREFIX + currentUser;
+                 const storedData = localStorage.getItem(userStorageKey);
+                 let userProgressData = storedData ? JSON.parse(storedData) : null;
+
+                 if (userProgressData && checkSyllabusIntegrity(userProgressData)) {
+                     syllabusState = userProgressData;
+                     console.log("Loaded progress state for:", currentUser);
+                 } else {
+                     if (userProgressData) console.warn("Syllabus mismatch/corrupt state for user:", currentUser, ". Re-initializing.");
+                     else console.log("No saved state found for:", currentUser, ". Initializing.");
+                     initializeSyllabusState();
+                     saveUserProgressState(); // Save the newly initialized state
+                 }
+
+                 localStorage.setItem(LOCAL_STORAGE_PREFIX + 'lastUser', currentUser); // Remember user
+                 showMainApp(); // Show the main application UI
+                 renderApp(); // Render all components
+
+             } catch (error) {
+                 console.error(`Error during login process for ${username}:`, error);
+                 loginError.textContent = "Login failed. Check console.";
+                 currentUser = null; // Reset user on error
+                 showLoginModal(); // Ensure login is visible
+             }
+         }
+
+        function handleLogout() { /* Remains the same, calls showLoginModal */
+             currentUser = null; syllabusState = [];
+             localStorage.removeItem(LOCAL_STORAGE_PREFIX + 'lastUser');
+             destroyCharts(); // Destroy charts before hiding
+             showLoginModal();
+         }
+
+        function saveUserProgressState() { /* Saves only syllabusState */
+            if (!currentUser) return;
+            try {
+                const userStorageKey = LOCAL_STORAGE_PREFIX + currentUser;
+                localStorage.setItem(userStorageKey, JSON.stringify(syllabusState));
+                // console.log("Progress state saved for:", currentUser); // Reduce console noise
+            } catch (error) {
+                 console.error("Error saving progress state:", error);
+            }
+        }
+
+        function checkSyllabusIntegrity(stateToCheck) { /* Remains the same */
+            try {
+                const configTopicIds = new Set(syllabusConfig.flatMap(unit => unit.topics.map(t => t.id)));
+                const stateTopicIds = new Set(stateToCheck.map(t => t.id));
+                if (configTopicIds.size !== stateTopicIds.size) return false;
+                for (let id of configTopicIds) { if (!stateTopicIds.has(id)) return false; }
+                return true;
+            } catch (e) { console.error("Error checking syllabus integrity:", e); return false; }
+        }
+
+
+        // --- State Management (Initialize for Current User) --- //
+        function initializeSyllabusState() { /* Remains the same */
+             try {
+                syllabusState = []; const now = new Date().toISOString();
+                syllabusConfig.forEach(unit => {
+                    unit.topics.forEach(topic => {
+                        syllabusState.push({ id: topic.id, name: topic.name, unit: unit.unit, status: 'not_started', confidence: 1, lastUpdated: now });
+                    });
+                 });
+             } catch (e) { console.error("Error initializing syllabus state:", e); syllabusState = []; } // Ensure state is empty on error
+        }
+
+        // --- Leaderboard --- //
+        // (Load, Save, Calculate, Update, Render functions remain the same)
+        function loadLeaderboard() { try { const d = localStorage.getItem(LEADERBOARD_KEY); leaderboardData = d ? JSON.parse(d) : []; } catch(e) { console.error("Error loading leaderboard:", e); leaderboardData = []; } }
+        function saveLeaderboard() { try { localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboardData)); } catch(e) { console.error("Error saving leaderboard:", e); } }
+        function calculateUserScore(state) { try { return state.reduce((score, topic) => score + statusLevels[topic.status].value, 0); } catch(e) { console.error("Error calculating score:", e); return 0; } }
+        function updateUserLeaderboard() { /* ... includes try...catch if needed */ try { if (!currentUser) return; const score = calculateUserScore(syllabusState); const idx = leaderboardData.findIndex(e => e.username === currentUser); if (idx > -1) leaderboardData[idx].score = score; else leaderboardData.push({ username: currentUser, score }); leaderboardData.sort((a, b) => b.score - a.score); saveLeaderboard(); renderLeaderboard(); } catch (e) { console.error("Error updating leaderboard:", e); } }
+        function renderLeaderboard() { /* ... includes try...catch */ try { leaderboardList.innerHTML = ''; if (leaderboardData.length === 0) { leaderboardList.innerHTML = '<li>No scores yet.</li>'; return; } leaderboardData.slice(0, 10).forEach((entry, index) => { const li = document.createElement('li'); li.innerHTML = `<div><span class="leader-rank">${index + 1}.</span><span class="leader-name">${entry.username.split(' ')[0]}</span></div><span class="leader-score">${entry.score} pts</span>`; if (entry.username === currentUser) { li.style.fontWeight = 'bold'; li.style.backgroundColor = 'rgba(52, 152, 219, 0.1)'; } leaderboardList.appendChild(li); }); } catch (e) { console.error("Error rendering leaderboard:", e); leaderboardList.innerHTML = '<li>Error loading.</li>'; } }
+
+
+        // --- Rendering Functions --- //
+        function renderApp() {
+            // Central function to render all parts of the UI after login
+            console.log("Rendering app components...");
+            renderTopicList();
+            renderDashboard();
+        }
+
+        function renderTopicList() { // Renders Cards
+            try {
+                topicListContainer.innerHTML = ''; // Clear container
+                if (!currentUser || syllabusState.length === 0) {
+                    topicListContainer.innerHTML = '<p style="text-align:center; padding: 20px; color: var(--secondary-text);">No topics found or user not logged in.</p>';
+                    return;
+                }
+
+                syllabusState.forEach(topic => {
+                    const card = document.createElement('div');
+                    card.className = 'topic-card'; card.dataset.topicId = topic.id;
+
+                    card.innerHTML = `
+                        <div class="topic-header">
+                            <span class="topic-name">${topic.name}</span>
+                            <span class="unit-name">(${topic.unit})</span>
+                        </div>
+                        <div class="controls-section">
+                            <div class="status-control">
+                                <span class="control-label">Status:</span>
+                                ${statusOrder.map(key => `
+                                    <button class="status-button ${topic.status === key ? 'active' : ''}" data-status-key="${key}">
+                                        ${statusLevels[key].label}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <div class="confidence-control">
+                                <span class="control-label">Confidence:</span>
+                                <span class="confidence-stars">
+                                    ${[1, 2, 3, 4, 5].map(i => `
+                                        <i class="fas fa-star ${i <= topic.confidence ? 'active' : ''}" data-confidence-value="${i}"></i>
+                                    `).join('')}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="topic-footer">
+                            <span class="last-updated">Updated: ${formatDate(topic.lastUpdated)}</span>
+                        </div>
+                    `;
+
+                    // Add event listeners after innerHTML is set
+                    card.querySelectorAll('.status-button').forEach(button => {
+                        button.addEventListener('click', () => updateTopicStatus(topic.id, button.dataset.statusKey));
+                    });
+                    card.querySelectorAll('.confidence-stars i').forEach(star => {
+                        star.addEventListener('click', () => updateTopicConfidence(topic.id, parseInt(star.dataset.confidenceValue)));
+                    });
+
+                    topicListContainer.appendChild(card);
+                });
+            } catch (error) {
+                 console.error("Error rendering topic list:", error);
+                 topicListContainer.innerHTML = '<p style="text-align:center; padding: 20px; color: var(--danger-color);">Error displaying topics.</p>';
+            }
+        }
+
+        function renderDashboard() { /* Renders all charts + focus list + leaderboard */
+             if (!currentUser) return;
+             console.log("Rendering dashboard...");
+             try {
+                 destroyCharts(); // Clear previous charts first
+                 renderProgressChart();
+                 renderStatusChart();
+                 renderConfidenceChart();
+                 renderFocusTopics();
+                 renderLeaderboard();
+             } catch (error) {
+                 console.error("Error rendering dashboard:", error);
+             }
+         }
+        function destroyCharts() { /* Same as before */
+            try {
+                 if (progressChartInstance) progressChartInstance.destroy(); if (statusChartInstance) statusChartInstance.destroy(); if (confidenceChartInstance) confidenceChartInstance.destroy();
+                 progressChartInstance = null; statusChartInstance = null; confidenceChartInstance = null;
+             } catch(e) { console.error("Error destroying charts:", e); }
+         }
+
+
+        // --- Update Functions --- //
+        function updateTopicStatus(topicId, newStatus) { /* Same logic, updates state, saves, re-renders card UI part, updates dashboard */
+            try {
+                const topicIndex = syllabusState.findIndex(t => t.id === topicId);
+                if (topicIndex > -1 && statusLevels[newStatus]) {
+                    syllabusState[topicIndex].status = newStatus;
+                    syllabusState[topicIndex].lastUpdated = new Date().toISOString();
+                    saveUserProgressState();
+                    updateUserLeaderboard(); // Recalculates score
+
+                    const card = topicListContainer.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
+                    if (card) {
+                        card.querySelectorAll('.status-button').forEach(btn => btn.classList.toggle('active', btn.dataset.statusKey === newStatus));
+                        card.querySelector('.last-updated').textContent = `Updated: ${formatDate(syllabusState[topicIndex].lastUpdated)}`;
+                    }
+                    renderDashboard(); // Update charts/focus
+                }
+            } catch(e) { console.error("Error updating status:", e); }
+        }
+        function updateTopicConfidence(topicId, newConfidence) { /* Same logic, updates state, saves, re-renders card UI part, updates dashboard */
+            try {
+                const topicIndex = syllabusState.findIndex(t => t.id === topicId);
+                const confidence = parseInt(newConfidence);
+                if (topicIndex > -1 && !isNaN(confidence) && confidence >= 1 && confidence <= 5) {
+                     syllabusState[topicIndex].confidence = confidence;
+                     syllabusState[topicIndex].lastUpdated = new Date().toISOString();
+                     saveUserProgressState(); // Confidence doesn't change score directly
+
+                     const card = topicListContainer.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
+                     if (card) {
+                         card.querySelectorAll('.confidence-stars i').forEach((star, index) => star.classList.toggle('active', (index + 1) <= confidence));
+                         card.querySelector('.last-updated').textContent = `Updated: ${formatDate(syllabusState[topicIndex].lastUpdated)}`;
+                     }
+                     renderDashboard(); // Update charts/focus
+                }
+            } catch(e) { console.error("Error updating confidence:", e); }
+        }
+
+
+        // --- Charting Functions (Adjusted slightly for robustness) --- //
+         Chart.defaults.font.family = "var(--font-family)"; Chart.defaults.responsive = true; Chart.defaults.maintainAspectRatio = false; /* ... other defaults ... */
+
+         function renderProgressChart() {
+             const ctx = document.getElementById('progressChart')?.getContext('2d'); if (!ctx) { console.error("ProgressChart canvas not found"); return; }
+             try { /* Chart logic remains */
+                const totalTopics = syllabusState.length; const completedTopics = syllabusState.filter(t => t.status === 'confident' || t.status === 'mastered').length;
+                const percentage = totalTopics === 0 ? 0 : Math.round((completedTopics / totalTopics) * 100); const chartTitle = `Overall Completion (${completedTopics}/${totalTopics})`;
+                const data = { labels: ['Completed', 'Remaining'], datasets: [{ data: [percentage, 100 - percentage], backgroundColor: [statusLevels['confident'].color, '#e9ecef'], borderColor: '#ffffff', borderWidth: 1 }] };
+                const options = { rotation: -90, circumference: 180, cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw.toFixed(0)}%` } }, title: { display: true, text: chartTitle, position: 'bottom', padding: { top: 5 }, font: {size: 13} } } };
+                if (progressChartInstance) { progressChartInstance.data = data; progressChartInstance.options.plugins.title.text = chartTitle; progressChartInstance.update(); }
+                else { progressChartInstance = new Chart(ctx, { type: 'doughnut', data, options }); }
+             } catch(e) { console.error("Error rendering progress chart:", e); }
+         }
+         function renderStatusChart() {
+             const ctx = document.getElementById('statusChart')?.getContext('2d'); if (!ctx) { console.error("StatusChart canvas not found"); return; }
+             try { /* Chart logic remains */
+                const statusCounts = statusOrder.reduce((acc, key) => ({ ...acc, [key]: 0 }), {}); syllabusState.forEach(topic => { statusCounts[topic.status]++; });
+                const data = { labels: statusOrder.map(key => statusLevels[key].label), datasets: [{ label: 'Topics', data: statusOrder.map(key => statusCounts[key]), backgroundColor: statusOrder.map(key => statusLevels[key].color), barThickness: 15, borderRadius: 3 }] };
+                const options = { indexAxis: 'y', scales: { x: { beginAtZero: true, grid: { display: false }, ticks: { font: { size: 10 } } }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } }, plugins: { legend: { display: false }, tooltip: { displayColors: false } } };
+                if (statusChartInstance) { statusChartInstance.data = data; statusChartInstance.update(); } else { statusChartInstance = new Chart(ctx, { type: 'bar', data, options }); }
+             } catch(e) { console.error("Error rendering status chart:", e); }
+         }
+         function renderConfidenceChart() {
+             const ctx = document.getElementById('confidenceChart')?.getContext('2d'); if (!ctx) { console.error("ConfidenceChart canvas not found"); return; }
+             try { /* Chart logic remains */
+                const confidenceCounts = confidenceLevels.reduce((acc, level) => ({ ...acc, [level]: 0 }), {}); syllabusState.forEach(topic => { confidenceCounts[topic.confidence]++; });
+                const data = { labels: confidenceLevels.map(level => `Level ${level}`), datasets: [{ label: 'Topics', data: confidenceLevels.map(level => confidenceCounts[level]), backgroundColor: ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#27ae60'], barThickness: 15, borderRadius: 3 }] };
+                const options = { scales: { y: { beginAtZero: true, grid: { display: false }, ticks: { font: { size: 10 } } } , x: { grid: { display: false }, ticks: { font: { size: 10 } }}}, plugins: { legend: { display: false }, tooltip: { displayColors: false } } };
+                if (confidenceChartInstance) { confidenceChartInstance.data = data; confidenceChartInstance.update(); } else { confidenceChartInstance = new Chart(ctx, { type: 'bar', data, options }); }
+             } catch(e) { console.error("Error rendering confidence chart:", e); }
+         }
+
+
+        // --- Focus Topics Rendering --- //
+        function renderFocusTopics() { /* Same logic */
+             try {
+                focusTopicsList.innerHTML = ''; const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                 const focusTopics = syllabusState.filter(topic => { const lastUpdatedDate = new Date(topic.lastUpdated); return topic.status !== 'mastered' || topic.confidence < 3 || lastUpdatedDate < thirtyDaysAgo; })
+                 .sort((a, b) => statusLevels[a.status].value - statusLevels[b.status].value || a.confidence - b.confidence || new Date(a.lastUpdated) - new Date(b.lastUpdated))
+                 .slice(0, 5);
+                 if (focusTopics.length === 0) { focusTopicsList.innerHTML = '<li><i class="fas fa-check-circle" style="color: var(--success-color);"></i> No urgent topics!</li>'; }
+                 else { focusTopics.forEach(topic => { const li = document.createElement('li'); li.innerHTML = `<span>${topic.name}</span> <small>(Conf: ${topic.confidence}/5)</small>`; focusTopicsList.appendChild(li); }); }
+             } catch (e) { console.error("Error rendering focus topics:", e); focusTopicsList.innerHTML = '<li>Error loading.</li>'; }
+         }
+
+        // --- Utility Functions --- //
+        function formatDate(isoString) { /* Same logic */
+            if (!isoString) return 'N/A'; try { return new Date(isoString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch (e) { return 'Invalid Date'; }
+        }
+
+    </script>
+
+</body>
+</html>
