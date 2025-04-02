@@ -1,83 +1,7 @@
 [
     {
-        "subjectId": "eb",
-        "subjectName": "Environmental Biotechnology",
-        "units": [
-            {
-                "unitId": "eb-1",
-                "unitName": "UNIT I: Waste Water Treatment",
-                "topics": [
-                    {
-                        "topicId": "eb-1.1",
-                        "topicName": "Domestic (Municipal) and Industrial Waste Water Treatments",
-                        "subTopics": [
-                            { "topicId": "eb-1.1.1", "topicName": "Primary Treatment..." },
-                            { "topicId": "eb-1.1.2", "topicName": "Secondary Treatment..." },
-                            { "topicId": "eb-1.1.3", "topicName": "Tertiary Treatment..." }
-                        ]
-                    },
-                    {
-                        "topicId": "eb-1.2",
-                        "topicName": "Important Microorganisms...",
-                        "subTopics": [
-                            { "topicId": "eb-1.2.1", "topicName": "Aerobic Microorganisms..." },
-                            { "topicId": "eb-1.2.2", "topicName": "Anaerobic Microorganisms..." },
-                            { "topicId": "eb-1.2.3", "topicName": "Principles of Growth..." }
-                        ]
-                    },
-                    {
-                        "topicId": "eb-1.3",
-                        "topicName": "Aerobic Biological Treatments...",
-                        "subTopics": [
-                            { "topicId": "eb-1.3.1", "topicName": "Activated Sludge Process..." },
-                            { "topicId": "eb-1.3.2", "topicName": "Rotating Biological Contactors..." }
-                        ]
-                    },
-                    {
-                        "topicId": "eb-1.4",
-                        "topicName": "Anaerobic Biological Treatments...",
-                        "subTopics": [
-                            { "topicId": "eb-1.4.1", "topicName": "Air Lift Membrane Bioreactors..." },
-                            { "topicId": "eb-1.4.2", "topicName": "Packed Bed (Column) Reactors..." }
-                        ]
-                    }
-                ]
-            },
-            {
-                "unitId": "eb-2",
-                "unitName": "UNIT II: Biodegradation Techniques",
-                "topics": [
-                    { "topicId": "eb-2.1", "topicName": "Biodegradation: Definition and Concept..." },
-                    { "topicId": "eb-2.2", "topicName": "Aerobic and Anaerobic Degradation Pathways..." },
-                    { "topicId": "eb-2.3", "topicName": "Biodegradation of Hydrocarbons..." },
-                    { "topicId": "eb-2.4", "topicName": "Municipal Solid Waste Management..." }
-                ]
-            },
-            {
-                "unitId": "eb-3",
-                "unitName": "UNIT III: Bioremediation",
-                "topics": [
-                    { "topicId": "eb-3.1", "topicName": "Introduction, Definition, and Concept..." },
-                    { "topicId": "eb-3.2", "topicName": "Methods of Bioremediation..." },
-                    { "topicId": "eb-3.3", "topicName": "Bioremediation of Soil..." },
-                    { "topicId": "eb-3.4", "topicName": "Phytoremediation..." },
-                    { "topicId": "eb-3.5", "topicName": "Applications of Bioremediation..." }
-                ]
-            },
-            {
-                "unitId": "eb-4",
-                "unitName": "UNIT IV: Xenobiotics",
-                "topics": [
-                    { "topicId": "eb-4.1", "topicName": "Xenobiotics and Recalcitrancy..." },
-                    { "topicId": "eb-4.2", "topicName": "Xenobiotics Degradation..." },
-                    { "topicId": "eb-4.3", "topicName": "Metabolism of Xenobiotics..." }
-                ]
-            }
-        ]
-    },
-    {
         "subjectId": "pharma",
-        "subjectName": "Pharmaceutical Biotechnology",
+        "subjectName": "Industrial Biotechnology",
         "units": [
             {
                 "unitId": "pharma-1",
@@ -308,6 +232,82 @@
                             { "topicId": "pharma-4.4.3", "topicName": "Regulatory requirements and validation" }
                         ]
                     }
+                ]
+            }
+        ]
+    },
+    {
+        "subjectId": "eb",
+        "subjectName": "Environmental Biotechnology",
+        "units": [
+            {
+                "unitId": "eb-1",
+                "unitName": "UNIT I: Waste Water Treatment",
+                "topics": [
+                    {
+                        "topicId": "eb-1.1",
+                        "topicName": "Domestic (Municipal) and Industrial Waste Water Treatments",
+                        "subTopics": [
+                            { "topicId": "eb-1.1.1", "topicName": "Primary Treatment..." },
+                            { "topicId": "eb-1.1.2", "topicName": "Secondary Treatment..." },
+                            { "topicId": "eb-1.1.3", "topicName": "Tertiary Treatment..." }
+                        ]
+                    },
+                    {
+                        "topicId": "eb-1.2",
+                        "topicName": "Important Microorganisms...",
+                        "subTopics": [
+                            { "topicId": "eb-1.2.1", "topicName": "Aerobic Microorganisms..." },
+                            { "topicId": "eb-1.2.2", "topicName": "Anaerobic Microorganisms..." },
+                            { "topicId": "eb-1.2.3", "topicName": "Principles of Growth..." }
+                        ]
+                    },
+                    {
+                        "topicId": "eb-1.3",
+                        "topicName": "Aerobic Biological Treatments...",
+                        "subTopics": [
+                            { "topicId": "eb-1.3.1", "topicName": "Activated Sludge Process..." },
+                            { "topicId": "eb-1.3.2", "topicName": "Rotating Biological Contactors..." }
+                        ]
+                    },
+                    {
+                        "topicId": "eb-1.4",
+                        "topicName": "Anaerobic Biological Treatments...",
+                        "subTopics": [
+                            { "topicId": "eb-1.4.1", "topicName": "Air Lift Membrane Bioreactors..." },
+                            { "topicId": "eb-1.4.2", "topicName": "Packed Bed (Column) Reactors..." }
+                        ]
+                    }
+                ]
+            },
+            {
+                "unitId": "eb-2",
+                "unitName": "UNIT II: Biodegradation Techniques",
+                "topics": [
+                    { "topicId": "eb-2.1", "topicName": "Biodegradation: Definition and Concept..." },
+                    { "topicId": "eb-2.2", "topicName": "Aerobic and Anaerobic Degradation Pathways..." },
+                    { "topicId": "eb-2.3", "topicName": "Biodegradation of Hydrocarbons..." },
+                    { "topicId": "eb-2.4", "topicName": "Municipal Solid Waste Management..." }
+                ]
+            },
+            {
+                "unitId": "eb-3",
+                "unitName": "UNIT III: Bioremediation",
+                "topics": [
+                    { "topicId": "eb-3.1", "topicName": "Introduction, Definition, and Concept..." },
+                    { "topicId": "eb-3.2", "topicName": "Methods of Bioremediation..." },
+                    { "topicId": "eb-3.3", "topicName": "Bioremediation of Soil..." },
+                    { "topicId": "eb-3.4", "topicName": "Phytoremediation..." },
+                    { "topicId": "eb-3.5", "topicName": "Applications of Bioremediation..." }
+                ]
+            },
+            {
+                "unitId": "eb-4",
+                "unitName": "UNIT IV: Xenobiotics",
+                "topics": [
+                    { "topicId": "eb-4.1", "topicName": "Xenobiotics and Recalcitrancy..." },
+                    { "topicId": "eb-4.2", "topicName": "Xenobiotics Degradation..." },
+                    { "topicId": "eb-4.3", "topicName": "Metabolism of Xenobiotics..." }
                 ]
             }
         ]

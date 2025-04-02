@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => { // Make listener async
     // --- Configuration ---
     const API_URL = 'api.php';
     // NOTE: If you get 404 errors on login/register/update, ensure your PHP server
@@ -18,8 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Industrial Biotechnology Syllabus (Structure only, content assumed loaded)
     // Hierarchical Syllabus Configuration
-    let syllabusConfig = null; // Loaded from subject.json
-    let allTopics = []; // Calculated after loading syllabusConfig
+    // Syllabus configuration will be loaded asynchronously
+    let syllabusConfig = null;
+    let allTopics = [];
     // Syllabus configuration will be loaded from subject.json
 
     // Helper function to recursively get all topics/sub-topics with IDs
@@ -91,20 +92,53 @@ document.addEventListener('DOMContentLoaded', () => {
     const leaderboardBody = document.getElementById('leaderboard-body');
     const refreshLeaderboardButton = document.getElementById('refresh-leaderboard');
 
-    // --- Initialization ---
-    async function init() {
-        console.log("StudyTrack Pro Initializing with Auth...");
-        setupEventListeners();
+    // --- Syllabus Loading ---
+    async function loadSyllabusConfig() {
         try {
-            await loadSyllabusConfig(); // Load syllabus first
-            await checkSession(); // Then check for active session
+            const response = await fetch('subject.json');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            console.log(`Fetch response status: ${response.status} ${response.statusText}`); // Log status
+            const data = await response.json(); // Attempt to parse JSON
+            console.log("Syllabus configuration parsed successfully:", data); // Log parsed data
+            return data; // Return the loaded config
         } catch (error) {
-            console.error("Initialization failed:", error);
-            // Optionally display an error message to the user
-            showLoginUI(); // Fallback to login UI if init fails
+            // Log specific error type (e.g., network error vs. JSON parse error)
+            console.error(`Error loading/parsing syllabus configuration (subject.json):`, error);
+            // Handle error appropriately - maybe show an error message to the user
+            // For now, we'll let the init catch block handle it.
+            // Re-throw error to be caught by the main initialization block
+            throw error;
         }
     }
 
+    // --- Initialization (within async DOMContentLoaded) ---
+    console.log("DOM loaded. Initializing app...");
+    try {
+        syllabusConfig = await loadSyllabusConfig(); // Await the fetch
+
+        if (!syllabusConfig) {
+             console.error("Syllabus config failed to load. Cannot initialize fully.");
+             // Display an error message to the user? You might want a dedicated UI element.
+             showLoginUI(); // Show login as a fallback, or a dedicated error state
+             return; // Stop initialization
+        }
+
+        // Calculate allTopics only after syllabusConfig is successfully loaded
+        allTopics = getAllTopicsRecursive(syllabusConfig);
+        console.log("Syllabus processed, proceeding with init...");
+
+        // Setup listeners and check session *after* syllabus is ready
+        setupEventListeners();
+        await checkSession(); // Check for active session
+
+    } catch (error) {
+        console.error("Initialization failed:", error);
+        // Display error to user
+        showLoginUI(); // Fallback to login UI if essential init fails
+    }
+    // --- End Initialization ---
     function setupEventListeners() {
         // Auth Modal Switching
         showRegisterButton.addEventListener('click', () => switchAuthForm('register'));
@@ -284,11 +318,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // function handleUnitNavClick(event) { ... } // Removed unit navigation handler
     function handleTopicStatusClick(event) {
-        if (event.target.classList.contains('status-button') && !event.target.classList.contains('active')) {
-            const topicId = event.target.closest('.topic-card')?.dataset.topicId;
-            const newStatus = event.target.dataset.statusKey;
+        const clickedButton = event.target.closest('.status-button'); // Find the button itself
+
+        // Check if a status button was actually clicked and it's not already active
+        if (clickedButton && !clickedButton.classList.contains('active')) {
+            const topicCard = clickedButton.closest('.topic-card'); // Find the parent card
+            const topicId = topicCard?.dataset.topicId;
+            const newStatus = clickedButton.dataset.statusKey;
+
             if (topicId && newStatus) {
                 updateTopicStatus(topicId, newStatus);
+            } else {
+                 console.warn("Could not find topicId or newStatus for clicked button:", clickedButton); // Added warning
             }
         }
     }
@@ -407,24 +448,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDashboardUI() {
         if (!currentUser) return;
         const score = calculateScore();
-
-    // --- Syllabus Loading ---
-    async function loadSyllabusConfig() {
-        try {
-            const response = await fetch('subject.json');
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            syllabusConfig = await response.json();
-            allTopics = getAllTopicsRecursive(syllabusConfig); // Calculate topics after loading
-            console.log("Syllabus configuration loaded successfully.");
-        } catch (error) {
-            console.error('Error loading syllabus configuration:', error);
-            // Handle error appropriately - maybe show an error message to the user
-            // For now, we'll let the init catch block handle it.
-            throw error; // Re-throw to be caught by init()
-        }
-    }
 
         const masteryCount = Object.values(userProgress).filter(status => status === 'mastered').length;
         topicsCompleted.textContent = `${masteryCount} / ${allTopics.length} Mastered`;
@@ -568,5 +591,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Start the application ---
-    init(); // No catch needed here as init now calls checkSession which handles errors
+    // The initialization logic is already handled within the async DOMContentLoaded listener above.
 });
