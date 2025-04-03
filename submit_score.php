@@ -4,7 +4,8 @@
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, must-revalidate'); // Prevent caching
 
-$leaderboardFile = 'leaderboard.json';
+$dataDir = __DIR__ . '/../data/'; // Define data directory relative to this script
+$leaderboardFile = $dataDir . 'leaderboard.json';
 
 // Check if it's a POST request
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

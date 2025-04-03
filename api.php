@@ -7,69 +7,95 @@ session_start([
 
 header('Content-Type: application/json');
 
-$leaderboardFile = 'leaderboard.json';
-$usersFile = 'users.json'; // New file for user data
+// Define the path to the data directory, one level above the script's directory
+$dataDir = __DIR__ . '/../data/';
+$leaderboardFile = $dataDir . 'leaderboard.json';
+$usersFile = $dataDir . 'users.json';
+$subjectFile = $dataDir . 'subject.json'; // Syllabus file path
 
 // --- Helper Functions ---
 
-// Function to read JSON file with locking (modified to be generic)
+// Function to read JSON file with locking
 function readJsonFile($file) {
     if (!file_exists($file)) {
-        return []; // Return empty array if file doesn't exist
+        // Return specific structure indicating file not found, especially for syllabus
+        if (basename($file) === 'subject.json') {
+             return ['not_found' => true]; // Indicate syllabus file is missing specifically
+        }
+        return []; // Return empty array if other data files don't exist
     }
-    $fp = fopen($file, 'c+'); // Open for read/write, create if not exists
+    $fp = fopen($file, 'c+');
     if (!$fp) {
+        // Log error for debugging server-side
+        error_log("Could not open file for reading: " . $file);
         return ['error' => 'Could not open file for reading.', 'code' => 500];
     }
 
+    $data = []; // Initialize data
     if (flock($fp, LOCK_SH)) { // Shared lock for reading
         $filesize = filesize($file);
         $content = $filesize > 0 ? fread($fp, $filesize) : '';
         flock($fp, LOCK_UN);
-        fclose($fp);
 
-        if (empty($content)) {
-            return []; // Return empty array for empty file
+        if (!empty($content)) {
+            $decodedData = json_decode($content, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                // Log error for debugging server-side
+                error_log("Error decoding JSON: " . json_last_error_msg() . " in file: " . $file);
+                $data = ['error' => 'Error decoding JSON data.', 'code' => 500];
+            } else {
+                 $data = is_array($decodedData) ? $decodedData : [];
+            }
         }
-
-        $data = json_decode($content, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return ['error' => 'Error decoding JSON: ' . json_last_error_msg(), 'code' => 500];
-        }
-        return is_array($data) ? $data : [];
+        // If content was empty or JSON was invalid (and reset to error), $data remains empty array or error structure
     } else {
-        fclose($fp);
-        return ['error' => 'Could not lock file for reading.', 'code' => 500];
+        // Log error for debugging server-side
+        error_log("Could not lock file for reading: " . $file);
+        $data = ['error' => 'Could not lock file for reading.', 'code' => 500];
     }
+    fclose($fp);
+    return $data;
 }
 
-// Function to write JSON file with locking (modified to be generic)
+// Function to write JSON file with locking
 function writeJsonFile($file, $data) {
-    $fp = fopen($file, 'c+'); // Open for read/write, create if not exists, pointer at beginning
-     if (!$fp) {
+    // Ensure the directory exists before trying to open the file
+    $dir = dirname($file);
+    if (!is_dir($dir)) {
+        if (!mkdir($dir, 0775, true)) { // Create directory recursively with appropriate permissions
+             error_log("Failed to create directory: " . $dir);
+             return ['error' => 'Could not create data directory.', 'code' => 500];
+        }
+    }
+
+    $fp = fopen($file, 'c+');
+    if (!$fp) {
+        error_log("Could not open file for writing: " . $file);
         return ['error' => 'Could not open file for writing.', 'code' => 500];
     }
 
+    $result = ['error' => 'Could not lock file for writing.', 'code' => 500]; // Default error
     if (flock($fp, LOCK_EX)) { // Exclusive lock for writing
         ftruncate($fp, 0); // Truncate the file
         rewind($fp); // Move pointer to the beginning
 
         $jsonContent = json_encode($data, JSON_PRETTY_PRINT);
         if (json_last_error() !== JSON_ERROR_NONE) {
-             flock($fp, LOCK_UN);
-             fclose($fp);
-             return ['error' => 'Error encoding JSON: ' . json_last_error_msg(), 'code' => 500];
+             error_log("Error encoding JSON: " . json_last_error_msg());
+             $result = ['error' => 'Error encoding JSON data.', 'code' => 500];
+        } elseif (fwrite($fp, $jsonContent) === false) {
+             error_log("Failed to write to file: " . $file);
+             $result = ['error' => 'Failed to write data to file.', 'code' => 500];
+        } else {
+             fflush($fp); // Ensure data is written
+             $result = ['success' => true]; // Success
         }
-
-        fwrite($fp, $jsonContent);
-        fflush($fp);
         flock($fp, LOCK_UN);
-        fclose($fp);
-        return ['success' => true];
     } else {
-        fclose($fp);
-        return ['error' => 'Could not lock file for writing.', 'code' => 500];
+         error_log("Could not lock file for writing: " . $file);
     }
+    fclose($fp);
+    return $result;
 }
 
 // Function to handle errors and send JSON response
@@ -89,174 +115,165 @@ function sendSuccess($data = []) {
 // --- API Actions ---
 
 $method = $_SERVER['REQUEST_METHOD'];
-$action = $_REQUEST['action'] ?? null; // Primarily check GET/POST form data
+// Get action primarily from query string, fallback to POST body if needed
+$action = $_GET['action'] ?? null;
 $input = []; // Initialize input
 
 if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    // If action wasn't in URL/form data for POST, check JSON body
+    // If action wasn't in query string for POST, check JSON body
     if ($action === null && isset($input['action'])) {
         $action = $input['action'];
     }
 }
-// Now $action should have the correct action name from either source
-// and $input contains the JSON body for POST requests
-// --- User Management Actions ---
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'register') {
-    // Input Validation
-    $username = trim($input['username'] ?? '');
-    $email = trim($input['email'] ?? '');
-    $password = $input['password'] ?? '';
-    $confirmPassword = $input['confirmPassword'] ?? '';
+// --- Action Routing ---
 
-    if (empty($username) || strlen($username) < 3) sendError('Username must be at least 3 characters.');
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) sendError('Invalid email format.');
-    if (empty($password) || strlen($password) < 6) sendError('Password must be at least 6 characters.');
-    if ($password !== $confirmPassword) sendError('Passwords do not match.');
+switch ($action) {
+    case 'register':
+        if ($method !== 'POST') sendError('Invalid request method for register.', 405);
+        // Input Validation
+        $username = trim($input['username'] ?? '');
+        $email = trim($input['email'] ?? '');
+        $password = $input['password'] ?? '';
+        $confirmPassword = $input['confirmPassword'] ?? '';
 
-    // Check if user or email exists
-    $users = readJsonFile($usersFile);
-    if (isset($users['error'])) sendError($users['error'], $users['code']);
+        if (empty($username) || strlen($username) < 3) sendError('Username must be at least 3 characters.');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) sendError('Invalid email format.');
+        if (empty($password) || strlen($password) < 6) sendError('Password must be at least 6 characters.');
+        if ($password !== $confirmPassword) sendError('Passwords do not match.');
 
-    foreach ($users as $user) {
-        if (strcasecmp($user['username'], $username) === 0) sendError('Username already taken.');
-        if (strcasecmp($user['email'], $email) === 0) sendError('Email already registered.');
-    }
+        $users = readJsonFile($usersFile);
+        if (isset($users['error'])) sendError($users['error'], $users['code']);
 
-    // Hash password
-    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-    if ($passwordHash === false) sendError('Failed to hash password.', 500);
-
-    // Add new user
-    $newUser = [
-        'username' => $username,
-        'email' => $email,
-        'password_hash' => $passwordHash,
-        'registered_at' => date('c') // ISO 8601 date
-    ];
-    $users[] = $newUser;
-
-    // Write updated users file
-    $writeResult = writeJsonFile($usersFile, $users);
-    if (isset($writeResult['error'])) sendError($writeResult['error'], $writeResult['code']);
-
-    sendSuccess(['message' => 'Registration successful. Please login.']);
-
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
-    $loginIdentifier = trim($input['loginIdentifier'] ?? ''); // Can be username or email
-    $password = $input['password'] ?? '';
-
-    if (empty($loginIdentifier) || empty($password)) sendError('Username/Email and password are required.');
-
-    $users = readJsonFile($usersFile);
-    if (isset($users['error'])) sendError($users['error'], $users['code']);
-
-    $foundUser = null;
-    foreach ($users as $user) {
-        if (strcasecmp($user['username'], $loginIdentifier) === 0 || strcasecmp($user['email'], $loginIdentifier) === 0) {
-            $foundUser = $user;
-            break;
+        foreach ($users as $user) {
+            if (isset($user['username']) && strcasecmp($user['username'], $username) === 0) sendError('Username already taken.');
+            if (isset($user['email']) && strcasecmp($user['email'], $email) === 0) sendError('Email already registered.');
         }
-    }
 
-    if (!$foundUser) sendError('Invalid username/email or password.');
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+        if ($passwordHash === false) sendError('Failed to hash password.', 500);
 
-    // Verify password
-    if (password_verify($password, $foundUser['password_hash'])) {
-        // Regenerate session ID on login for security
-        session_regenerate_id(true);
-        $_SESSION['loggedin'] = true;
-        $_SESSION['username'] = $foundUser['username']; // Store username in session
-        sendSuccess(['message' => 'Login successful.', 'username' => $foundUser['username']]);
-    } else {
-        sendError('Invalid username/email or password.');
-    }
+        $newUser = [
+            'username' => $username, 'email' => $email,
+            'password_hash' => $passwordHash, 'registered_at' => date('c')
+        ];
+        $users[] = $newUser;
 
-} elseif ($action === 'logout') { // Can be GET or POST
-    session_unset();     // Unset $_SESSION variables
-    session_destroy();   // Destroy the session
-    // Clear session cookie (optional but good practice)
-    if (ini_get("session.use_cookies")) {
-        $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000,
-            $params["path"], $params["domain"],
-            $params["secure"], $params["httponly"]
-        );
-    }
-    sendSuccess(['message' => 'Logout successful.']);
+        $writeResult = writeJsonFile($usersFile, $users);
+        if (isset($writeResult['error'])) sendError($writeResult['error'], $writeResult['code']);
 
-} elseif ($action === 'check_session') { // Can be GET or POST
-    if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true && isset($_SESSION['username'])) {
-        sendSuccess(['loggedin' => true, 'username' => $_SESSION['username']]);
-    } else {
-        sendSuccess(['loggedin' => false]);
-    }
+        sendSuccess(['message' => 'Registration successful. Please login.']);
+        break; // End register case
 
-// --- Leaderboard Actions ---
+    case 'login':
+        if ($method !== 'POST') sendError('Invalid request method for login.', 405);
+        $loginIdentifier = trim($input['loginIdentifier'] ?? '');
+        $password = $input['password'] ?? '';
 
-} elseif ($_SERVER['REQUEST_METHOD'] === 'GET' && $action === 'get_leaderboard') {
-    $leaderboard = readJsonFile($leaderboardFile);
-    if (isset($leaderboard['error'])) sendError($leaderboard['error'], $leaderboard['code']);
+        if (empty($loginIdentifier) || empty($password)) sendError('Username/Email and password are required.');
 
-    // Ensure sorting by score before sending
-    usort($leaderboard, function($a, $b) {
-        return ($b['score'] ?? 0) <=> ($a['score'] ?? 0);
-    });
-    sendSuccess(['leaderboard' => $leaderboard]);
+        $users = readJsonFile($usersFile);
+        if (isset($users['error'])) sendError($users['error'], $users['code']);
 
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update_score') {
-    // Check if user is logged in
-    if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) {
-        sendError('User not logged in.', 401); // Unauthorized
-    }
-
-    $username = $_SESSION['username']; // Get username from session
-    $score = $input['score'] ?? null; // Get score from POST data
-
-    // Validate score
-    if (!is_numeric($score) || $score < 0) {
-        sendError('Invalid score provided.');
-    }
-    $score = (int)$score; // Ensure score is integer
-
-    $leaderboard = readJsonFile($leaderboardFile);
-    if (isset($leaderboard['error'])) sendError($leaderboard['error'], $leaderboard['code']);
-
-    $userFound = false;
-    foreach ($leaderboard as $key => $entry) {
-        // Use case-insensitive comparison for username matching
-        if (isset($entry['username']) && strcasecmp($entry['username'], $username) === 0) {
-            $leaderboard[$key]['score'] = $score; // Update score
-            $userFound = true;
-            break;
+        $foundUser = null;
+        foreach ($users as $user) {
+            if ((isset($user['username']) && strcasecmp($user['username'], $loginIdentifier) === 0) || (isset($user['email']) && strcasecmp($user['email'], $loginIdentifier) === 0)) {
+                $foundUser = $user; break;
+            }
         }
-    }
 
-    if (!$userFound) {
-        // Add new user to leaderboard
-        $leaderboard[] = ['username' => $username, 'score' => $score];
-    }
+        if (!$foundUser || !isset($foundUser['password_hash'])) sendError('Invalid username/email or password.');
 
-    // Sort leaderboard by score descending before writing
-    usort($leaderboard, function($a, $b) {
-        return ($b['score'] ?? 0) <=> ($a['score'] ?? 0);
-    });
+        if (password_verify($password, $foundUser['password_hash'])) {
+            session_regenerate_id(true);
+            $_SESSION['loggedin'] = true;
+            $_SESSION['username'] = $foundUser['username'];
+            sendSuccess(['message' => 'Login successful.', 'username' => $foundUser['username']]);
+        } else {
+            sendError('Invalid username/email or password.');
+        }
+        break; // End login case
 
-    // Assign ranks (optional, can be done on frontend too)
-    // $rank = 1;
-    // foreach ($leaderboard as $key => $entry) {
-    //     $leaderboard[$key]['rank'] = $rank++;
-    // }
+    case 'logout':
+        // Allow GET or POST for logout for simplicity, though POST is arguably better
+        session_unset(); session_destroy();
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000, $params["path"], $params["domain"], $params["secure"], $params["httponly"]);
+        }
+        sendSuccess(['message' => 'Logout successful.']);
+        break; // End logout case
 
-    // Write updated leaderboard file
-    $writeResult = writeJsonFile($leaderboardFile, $leaderboard);
-    if (isset($writeResult['error'])) sendError($writeResult['error'], $writeResult['code']);
+    case 'check_session':
+        // Allow GET or POST
+        if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true && isset($_SESSION['username'])) {
+            sendSuccess(['loggedin' => true, 'username' => $_SESSION['username']]);
+        } else {
+            sendSuccess(['loggedin' => false]);
+        }
+        break; // End check_session case
 
-    sendSuccess(['message' => 'Score updated successfully.']);
+    case 'get_leaderboard':
+        if ($method !== 'GET') sendError('Invalid request method for get_leaderboard.', 405);
+        $leaderboard = readJsonFile($leaderboardFile);
+        if (isset($leaderboard['error'])) sendError($leaderboard['error'], $leaderboard['code']);
+        usort($leaderboard, fn($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
+        sendSuccess(['leaderboard' => $leaderboard]);
+        break; // End get_leaderboard case
 
-} else {
-    sendError('Invalid action or request method.', 404);
+    case 'update_score':
+        if ($method !== 'POST') sendError('Invalid request method for update_score.', 405);
+        if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) sendError('User not logged in.', 401);
+
+        $username = $_SESSION['username'];
+        $score = $input['score'] ?? null;
+
+        if (!is_numeric($score) || $score < 0) sendError('Invalid score provided.');
+        $score = (int)$score;
+
+        $leaderboard = readJsonFile($leaderboardFile);
+        if (isset($leaderboard['error'])) sendError($leaderboard['error'], $leaderboard['code']);
+
+        $userFound = false; $updated = false;
+        foreach ($leaderboard as $key => $entry) {
+            if (isset($entry['username']) && strcasecmp($entry['username'], $username) === 0) {
+                if (!isset($entry['score']) || $score > $entry['score']) {
+                     $leaderboard[$key]['score'] = $score; $updated = true;
+                }
+                $userFound = true; break;
+            }
+        }
+
+        if (!$userFound) {
+            $leaderboard[] = ['username' => $username, 'score' => $score]; $updated = true;
+        }
+
+        // Only write if data actually changed
+        if ($updated) {
+            usort($leaderboard, fn($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
+            $writeResult = writeJsonFile($leaderboardFile, $leaderboard);
+            if (isset($writeResult['error'])) sendError($writeResult['error'], $writeResult['code']);
+        }
+
+        sendSuccess(['message' => 'Score processed successfully.']); // Changed message slightly
+        break; // End update_score case
+
+    case 'get_syllabus':
+         if ($method !== 'GET') sendError('Invalid request method for get_syllabus.', 405);
+         $syllabusData = readJsonFile($subjectFile);
+         if (isset($syllabusData['not_found'])) { // Check specific key for missing file
+              sendSuccess(['syllabus' => []]); // Send empty syllabus if file not found
+         } elseif (isset($syllabusData['error'])) {
+             sendError($syllabusData['error'], $syllabusData['code']);
+         } else {
+             sendSuccess(['syllabus' => $syllabusData]);
+         }
+         break; // End get_syllabus case
+
+    default:
+        sendError('Invalid action specified.', 404);
+        break; // End default case
 }
 
 ?>

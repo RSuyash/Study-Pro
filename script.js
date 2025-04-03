@@ -95,19 +95,27 @@ document.addEventListener('DOMContentLoaded', async () => { // Make listener asy
     // --- Syllabus Loading ---
     async function loadSyllabusConfig() {
         try {
-            const response = await fetch('subject.json');
+            // Fetch syllabus from the API endpoint
+            const response = await fetch(API_URL + '?action=get_syllabus');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            console.log(`Fetch response status: ${response.status} ${response.statusText}`); // Log status
-            const data = await response.json(); // Attempt to parse JSON
-            console.log("Syllabus configuration parsed successfully:", data); // Log parsed data
-            return data; // Return the loaded config
+            console.log(`Syllabus fetch response status: ${response.status} ${response.statusText}`); // Log status
+
+            const data = await response.json(); // Attempt to parse JSON from API
+
+            if (data.status === 'success' && data.syllabus) {
+                 console.log("Syllabus configuration loaded successfully via API:", data.syllabus); // Log parsed data
+                 return data.syllabus; // Return the syllabus array
+            } else {
+                 // Handle cases where API returns success=false or syllabus is missing
+                 const errorMessage = data.message || 'API did not return syllabus data successfully.';
+                 console.error('Error loading syllabus via API:', errorMessage, data);
+                 throw new Error(errorMessage);
+            }
         } catch (error) {
             // Log specific error type (e.g., network error vs. JSON parse error)
-            console.error(`Error loading/parsing syllabus configuration (subject.json):`, error);
-            // Handle error appropriately - maybe show an error message to the user
-            // For now, we'll let the init catch block handle it.
+            console.error(`Error loading/parsing syllabus configuration via API:`, error);
             // Re-throw error to be caught by the main initialization block
             throw error;
         }
