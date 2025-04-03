@@ -220,22 +220,22 @@ if ($subjectsStructure !== null && is_array($subjectsStructure)) {
 
             // Iterate through the subjects array
             foreach ($subjectsStructure as $subjectIndex => $subject) {
-                if (!isset($subject['subject_name'])) {
+                if (!isset($subject['subjectName'])) { // Corrected key check
                      echo "Warning: Skipping subject due to missing name." . $outputNewLine;
                      continue;
                 }
                 $subjectDesc = $subject['description'] ?? null;
-                $subjectStmt->bindParam(':name', $subject['subject_name']);
+                $subjectStmt->bindParam(':name', $subject['subjectName']); // Corrected key access
                 $subjectStmt->bindParam(':desc', $subjectDesc);
                 $subjectStmt->execute();
                 $subjectId = $pdo->lastInsertId();
                 $subjectCount++;
-                echo "  Migrated Subject: {$subject['subject_name']} (ID: $subjectId)" . $outputNewLine;
+                echo "  Migrated Subject: {$subject['subjectName']} (ID: $subjectId)" . $outputNewLine; // Corrected key access
 
                 if (isset($subject['units']) && is_array($subject['units'])) {
                     foreach ($subject['units'] as $unitIndex => $unit) {
                          if (!isset($unit['unit_name'])) {
-                             echo "Warning: Skipping unit in subject '{$subject['subject_name']}' due to missing name." . $outputNewLine;
+                             echo "Warning: Skipping unit in subject '{$subject['subjectName']}' due to missing name." . $outputNewLine; // Corrected key access
                              continue;
                          }
                         $unitOrder = $unit['order_index'] ?? $unitIndex;
