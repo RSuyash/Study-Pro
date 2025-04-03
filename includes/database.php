@@ -1,7 +1,7 @@
 <?php
 
 // Define the path to the db_config.php file, assuming it's two levels above the 'includes' directory
-$configPath = __DIR__ . '/../../../db_config.php'; // Go up 3 levels from 'includes' dir
+$configPath = __DIR__ . '/../../../../db_config.php'; // Go up 4 levels from 'includes' dir to reach alongside public_html
 
 // Check if the config file exists before trying to include it
 if (!file_exists($configPath)) {
