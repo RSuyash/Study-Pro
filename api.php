@@ -41,13 +41,26 @@ function readJsonFile($file) {
             // Remove potential UTF-8 BOM before decoding
             $bom = pack('H*','EFBBBF');
             $content_cleaned = preg_replace("/^$bom/", '', $content);
+
+            // --- Enhanced Debug Logging ---
+            // Log first 100 chars of cleaned content to check if it looks right
+            error_log("Attempting to decode JSON from file: " . $file . ". Cleaned content start: " . substr($content_cleaned, 0, 100));
+
             $decodedData = json_decode($content_cleaned, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                // Log error for debugging server-side
-                error_log("Error decoding JSON: " . json_last_error_msg() . " in file: " . $file);
-                $data = ['error' => 'Error decoding JSON data.', 'code' => 500];
+            $jsonErrorCode = json_last_error();
+
+            if ($jsonErrorCode !== JSON_ERROR_NONE) {
+                // Log the specific JSON error
+                error_log("JSON Decode Error Code: " . $jsonErrorCode . " - Message: " . json_last_error_msg() . " in file: " . $file);
+                $data = ['error' => 'Error decoding JSON data. Code: ' . $jsonErrorCode, 'code' => 500];
             } else {
+                 // Log success and type check
+                 error_log("JSON decoded successfully for file: " . $file . ". Type: " . gettype($decodedData));
                  $data = is_array($decodedData) ? $decodedData : [];
+                 // If it decoded but wasn't an array, log that too
+                 if (!is_array($decodedData)) {
+                     error_log("Decoded JSON was not an array for file: " . $file);
+                 }
             }
         }
         // If content was empty or JSON was invalid (and reset to error), $data remains empty array or error structure
