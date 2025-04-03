@@ -1,6 +1,6 @@
 <?php
 // --- SECURITY CHECK - REMOVE THIS SCRIPT AFTER RUNNING ONCE ---
-$secretKey = 'ChooseAReallyRandomStringHere123!'; // <-- CHANGE THIS to something unique!
+$secretKey = 'suyash9596@D!'; // <-- CHANGE THIS to something unique!
 if (!isset($_GET['key']) || $_GET['key'] !== $secretKey) {
     // If running via CLI, allow it without key
     if (php_sapi_name() !== 'cli') {
@@ -23,7 +23,7 @@ echo "Migration script started..." . $newLine;
 // Adjust path if migrate_data.php is not in the same dir as api.php/submit_score.php
 // Assuming migrate_data.php is in Study-Pro alongside includes/
 // The path needs to go up one level from Study-Pro, then into the sibling 'data' directory
-$dataDir = __DIR__ . '/../data/';
+$dataDir = __DIR__ . '/../Data/'; // Corrected case for Data directory
 $usersFile = $dataDir . 'users.json';
 $leaderboardFile = $dataDir . 'leaderboard.json';
 $subjectsFile = $dataDir . 'subject.json';
