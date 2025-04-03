@@ -8,7 +8,8 @@ session_start([
 header('Content-Type: application/json');
 
 // Define the path to the data directory, one level above the script's directory
-$dataDir = __DIR__ . '/../data/';
+// Construct path from document root - adjust 'Study-Pro-App' if needed
+$dataDir = $_SERVER['DOCUMENT_ROOT'] . '/Study-Pro-App/data/';
 $leaderboardFile = $dataDir . 'leaderboard.json';
 $usersFile = $dataDir . 'users.json';
 $subjectFile = $dataDir . 'subject.json'; // Syllabus file path

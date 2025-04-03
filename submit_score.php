@@ -4,7 +4,8 @@
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, must-revalidate'); // Prevent caching
 
-$dataDir = __DIR__ . '/../data/'; // Define data directory relative to this script
+// Construct path from document root - adjust 'Study-Pro-App' if needed
+$dataDir = $_SERVER['DOCUMENT_ROOT'] . '/Study-Pro-App/data/';
 $leaderboardFile = $dataDir . 'leaderboard.json';
 
 // Check if it's a POST request
