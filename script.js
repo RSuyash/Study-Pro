@@ -358,34 +358,39 @@ document.addEventListener('DOMContentLoaded', async () => { // Make listener asy
 
     // function switchUnit(unitIndex) { ... } // Removed unit switching logic
     // --- State Management (Progress) ---
-    function loadUserProgress() {
-        // Load progress from local storage, specific to the logged-in user
-        const progressKey = LOCAL_STORAGE_PROGRESS_KEY_PREFIX + currentUser;
-        const storedProgress = localStorage.getItem(progressKey);
-        userProgress = {}; // Reset for new load
-        if (storedProgress) {
-            try {
-                const parsed = JSON.parse(storedProgress);
-                if (typeof parsed === 'object' && parsed !== null) userProgress = parsed;
-                else console.warn("Invalid stored progress data.");
-            } catch (e) { console.error("Error parsing stored progress.", e); }
-        }
-        // Ensure all topics from the potentially new structure have a default status
-        allTopics.forEach(topic => {
-            if (!(topic.id in userProgress)) {
-                userProgress[topic.id] = 'not_started';
+    async function loadUserProgress() {
+        // Load progress from the backend API
+        if (!currentUser) return;
+        console.log("Loading user progress from API...");
+        let progressFromApi = {}; // Temporary store for API data
+        try {
+            const response = await fetch(`${API_URL}?action=get_user_progress&t=${Date.now()}`); // Add timestamp
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            const data = await response.json();
+            if (data.status === 'success' && typeof data.progress === 'object') {
+                progressFromApi = data.progress; // Store fetched progress
+                console.log("User progress loaded from API:", progressFromApi);
+            } else {
+                console.error("Failed to load user progress from API:", data.message || 'Invalid data format');
+            }
+        } catch (error) {
+            console.error("Error fetching user progress:", error);
+            // Optionally show an error message to the user on the UI
+        }
+
+        // Initialize local userProgress, ensuring all syllabus topics have an entry
+        // Use fetched data if available, otherwise default to 'not_started'
+        userProgress = {}; // Reset local progress object
+        allTopics.forEach(topic => {
+            userProgress[topic.id] = progressFromApi[topic.id] || 'not_started';
         });
-        // Save progress if defaults were added
-        saveUserProgress();
+        console.log("Initialized local userProgress:", userProgress);
+        // No local saving needed
     }
 
-    function saveUserProgress() {
-        if (!currentUser) return;
-        const progressKey = LOCAL_STORAGE_PROGRESS_KEY_PREFIX + currentUser;
-        try { localStorage.setItem(progressKey, JSON.stringify(userProgress)); }
-        catch (e) { console.error("Error saving user progress:", e); }
-    }
+    // saveUserProgress function removed as progress is now saved via API call in updateTopicStatus
 
     function calculateScore() {
         return allTopics.reduce((score, topic) => score + (statusLevels[userProgress[topic.id] || 'not_started']?.value || 0), 0);
@@ -487,30 +492,80 @@ document.addEventListener('DOMContentLoaded', async () => { // Make listener asy
     // --- Topic Interaction ---
     async function updateTopicStatus(topicId, newStatus) {
         if (!currentUser || !userProgress.hasOwnProperty(topicId) || !statusLevels[newStatus]) return;
-        userProgress[topicId] = newStatus;
-        saveUserProgress(); // Save change locally
 
-        // Update button UI in the list
-        const card = topicListContainer.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
-        if (card) {
-            card.querySelectorAll('.status-button').forEach(button => {
-                const isActive = button.dataset.statusKey === newStatus;
-                button.classList.toggle('active', isActive);
-                button.style.backgroundColor = isActive ? statusLevels[newStatus].color : '#f0f0f0';
-                button.style.color = isActive ? 'white' : '#555';
-                button.style.borderColor = isActive ? statusLevels[newStatus].color : 'var(--card-border)';
-            });
+        const oldStatus = userProgress[topicId]; // Store old status for potential revert
+        if (oldStatus === newStatus) return; // No change needed
+
+        // Optimistic UI update
+        userProgress[topicId] = newStatus;
+        updateTopicCardUI(topicId, newStatus);
+        // Update dashboard optimistically ONLY if the view is currently active
+        if (document.getElementById('view-dashboard').classList.contains('active')) {
+             updateDashboardUI(); // Recalculate score/rank based on local change
         }
 
-        // Update dashboard if active
-        if (currentView === 'dashboard') updateDashboardUI();
+        // Send update to backend API
+        try {
+            console.log(`Sending update for topic ${topicId} to status ${newStatus}`);
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_topic_status', topicId: topicId, status: newStatus })
+            });
 
-        // Update backend score (fire and forget is okay for now)
-        updateBackendLeaderboard(calculateScore()); // Pass current total score
+            // Check response status first
+            if (!response.ok) {
+                 console.error(`API HTTP Error updating topic status! Status: ${response.status}`);
+                 // Try to get error message from body, but might not be JSON
+                 let errorMsg = `HTTP error ${response.status}`;
+                 try { const errorData = await response.json(); errorMsg = errorData.message || errorMsg; } catch(e){}
+                 throw new Error(errorMsg); // Throw to trigger catch block
+            }
 
-        // Fetch leaderboard if relevant view is active
-        if (currentView === 'leaderboard' || currentView === 'dashboard') fetchLeaderboard();
+            const data = await response.json();
+
+            if (data.status !== 'success') {
+                console.error("API Logic Error updating topic status:", data.message);
+                throw new Error(data.message || 'API returned non-success status.'); // Throw to trigger catch block
+            } else {
+                console.log(`Topic ${topicId} successfully updated to ${newStatus} on backend.`);
+                // Score/Rank is updated on backend now. Fetch leaderboard if needed.
+                 if (document.getElementById('view-leaderboard').classList.contains('active') || document.getElementById('view-dashboard').classList.contains('active')) {
+                     // Add a small delay before fetching leaderboard to allow DB update
+                     console.log("Requesting leaderboard refresh after status update.");
+                     setTimeout(fetchLeaderboard, 500); // Slightly longer delay
+                 }
+            }
+        } catch (error) {
+            console.error("Error updating topic status:", error);
+            // Revert optimistic UI update on any error
+            userProgress[topicId] = oldStatus;
+            updateTopicCardUI(topicId, oldStatus);
+            if (document.getElementById('view-dashboard').classList.contains('active')) {
+                 updateDashboardUI(); // Revert dashboard too
+            }
+            // Optionally show error message to user on the UI
+            alert(`Failed to save progress for topic ${topicId}. Please try again. Error: ${error.message}`);
+        }
     }
+
+    // Helper function to update a single topic card's UI
+    function updateTopicCardUI(topicId, statusKey) {
+         const card = topicListContainer.querySelector(`.topic-card[data-topic-id="${topicId}"]`);
+         if (card && statusLevels[statusKey]) { // Check if statusKey is valid
+             card.querySelectorAll('.status-button').forEach(button => {
+                 const isActive = button.dataset.statusKey === statusKey;
+                 button.classList.toggle('active', isActive);
+                 // Use statusLevels for consistent styling
+                 button.style.backgroundColor = isActive ? statusLevels[statusKey].color : '#f0f0f0';
+                 button.style.color = isActive ? 'white' : '#555';
+                 button.style.borderColor = isActive ? statusLevels[statusKey].color : 'var(--card-border)';
+             });
+         } else {
+              console.warn(`Could not find card or invalid status key for topicId: ${topicId}, statusKey: ${statusKey}`);
+         }
+    }
+
 
     // --- Chart Rendering ---
     function destroyCharts() {
@@ -642,26 +697,7 @@ document.addEventListener('DOMContentLoaded', async () => { // Make listener asy
     }
 
     // Modified: No longer needs username passed, uses session on backend
-    async function updateBackendLeaderboard(score) {
-        if (!currentUser) return; // Don't update if not logged in
-        console.log(`Updating backend score to ${score}`);
-        try {
-            const response = await fetch(API_URL, { // Use POST for update
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'update_score', score: score }), // Send only score
-            });
-            if (!response.ok) {
-                 let errorMsg = `HTTP error! status: ${response.status}`;
-                 try { const d = await response.json(); errorMsg = d.message || errorMsg; } catch (e) {}
-                 throw new Error(errorMsg);
-            }
-            const data = await response.json();
-            if (data.status !== 'success') throw new Error(data.message || 'Failed to update score');
-            console.log("Backend score update successful.");
-        } catch (error) {
-            console.error('Error updating backend leaderboard:', error);
-        }
-    }
+    // Removed updateBackendLeaderboard function - logic handled by update_topic_status API action
 
     // --- Utilities ---
     function escapeHtml(unsafe) {
