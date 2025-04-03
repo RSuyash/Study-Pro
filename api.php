@@ -17,125 +17,8 @@ $dataDir = $_SERVER['DOCUMENT_ROOT'] . '/Study-Pro-App/data/';
 $subjectFile = $dataDir . 'subject.json'; // Syllabus file path
 
 // --- Helper Functions ---
-
-// Function to read JSON file with locking
-function readJsonFile($file) {
-    if (!file_exists($file)) {
-        // Return specific structure indicating file not found, especially for syllabus
-        if (basename($file) === 'subject.json') {
-             return ['not_found' => true]; // Indicate syllabus file is missing specifically
-        }
-        return []; // Return empty array if other data files don't exist
-    }
-    $fp = fopen($file, 'c+');
-    if (!$fp) {
-        // Log error for debugging server-side
-        error_log("Could not open file for reading: " . $file);
-        return ['error' => 'Could not open file for reading.', 'code' => 500];
-    }
-
-    $data = []; // Initialize data
-    if (flock($fp, LOCK_SH)) { // Shared lock for reading
-        $filesize = filesize($file);
-        $content = $filesize > 0 ? fread($fp, $filesize) : '';
-        flock($fp, LOCK_UN);
-
-        if (!empty($content)) {
-            // Remove potential UTF-8 BOM before decoding
-            $bom = pack('H*','EFBBBF');
-            $content_cleaned = preg_replace("/^$bom/", '', $content);
-
-            // --- Enhanced Debug Logging ---
-            // Log first 100 chars of cleaned content to check if it looks right
-            error_log("Attempting to decode JSON from file: " . $file . ". Cleaned content start: " . substr($content_cleaned, 0, 100));
-
-            $decodedData = json_decode($content_cleaned, true);
-            $jsonErrorCode = json_last_error();
-
-            if ($jsonErrorCode !== JSON_ERROR_NONE) {
-                // Return error details including the raw content start for debugging
-                $errorMessage = json_last_error_msg();
-                error_log("JSON Decode Error Code: " . $jsonErrorCode . " - Message: " . $errorMessage . " in file: " . $file);
-                // Return a specific structure indicating decode failure
-                return [
-                    'decode_error' => true,
-                    'error_code' => $jsonErrorCode,
-                    'error_message' => $errorMessage,
-                    'raw_content_start' => substr($content_cleaned, 0, 200) // Send back start of content
-                ];
-            } else {
-                 // Explicitly check if decode resulted in null, even if no error code set
-                 if ($decodedData === null && $content_cleaned !== 'null') {
-                      error_log("json_decode returned null despite no error code for file: " . $file);
-                      return [
-                          'decode_error' => true, 'error_code' => $jsonErrorCode, // Might be 0 (JSON_ERROR_NONE)
-                          'error_message' => 'json_decode returned null, possibly due to invalid structure or depth limit.',
-                          'raw_content_start' => substr($content_cleaned, 0, 200)
-                      ];
-                 } elseif (!is_array($decodedData)) {
-                     // Decoded successfully but is not an array
-                     error_log("Decoded JSON was not an array for file: " . $file . ". Type: " . gettype($decodedData));
-                     return [
-                         'type_error' => true, 'actual_type' => gettype($decodedData),
-                         'raw_content_start' => substr($content_cleaned, 0, 200)
-                     ];
-                 } else {
-                    // Success, it's an array
-                    error_log("JSON decoded successfully as array for file: " . $file);
-                    $data = $decodedData;
-                 }
-            }
-        }
-        // If content was empty or JSON was invalid (and reset to error), $data remains empty array or error structure
-    } else {
-        // Log error for debugging server-side
-        error_log("Could not lock file for reading: " . $file);
-        $data = ['error' => 'Could not lock file for reading.', 'code' => 500];
-    }
-    fclose($fp);
-    return $data;
-}
-
-// Function to write JSON file with locking
-function writeJsonFile($file, $data) {
-    // Ensure the directory exists before trying to open the file
-    $dir = dirname($file);
-    if (!is_dir($dir)) {
-        if (!mkdir($dir, 0775, true)) { // Create directory recursively with appropriate permissions
-             error_log("Failed to create directory: " . $dir);
-             return ['error' => 'Could not create data directory.', 'code' => 500];
-        }
-    }
-
-    $fp = fopen($file, 'c+');
-    if (!$fp) {
-        error_log("Could not open file for writing: " . $file);
-        return ['error' => 'Could not open file for writing.', 'code' => 500];
-    }
-
-    $result = ['error' => 'Could not lock file for writing.', 'code' => 500]; // Default error
-    if (flock($fp, LOCK_EX)) { // Exclusive lock for writing
-        ftruncate($fp, 0); // Truncate the file
-        rewind($fp); // Move pointer to the beginning
-
-        $jsonContent = json_encode($data, JSON_PRETTY_PRINT);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-             error_log("Error encoding JSON: " . json_last_error_msg());
-             $result = ['error' => 'Error encoding JSON data.', 'code' => 500];
-        } elseif (fwrite($fp, $jsonContent) === false) {
-             error_log("Failed to write to file: " . $file);
-             $result = ['error' => 'Failed to write data to file.', 'code' => 500];
-        } else {
-             fflush($fp); // Ensure data is written
-             $result = ['success' => true]; // Success
-        }
-        flock($fp, LOCK_UN);
-    } else {
-         error_log("Could not lock file for writing: " . $file);
-    }
-    fclose($fp);
-    return $result;
-}
+// Note: readJsonFile and writeJsonFile functions are removed as they are no longer needed for core data.
+// They could be kept if needed for other potential JSON config files in the future.
 
 // Function to handle errors and send JSON response
 function sendError($message, $code = 400) {
@@ -320,24 +203,61 @@ switch ($action) {
         break; // End update_score case
 
     case 'get_syllabus':
-         if ($method !== 'GET') sendError('Invalid request method for get_syllabus.', 405);
-         $syllabusData = readJsonFile($subjectFile);
-         if (isset($syllabusData['not_found'])) { // Check specific key for missing file
-              sendSuccess(['syllabus' => []]); // Send empty syllabus if file not found
-         } elseif (isset($syllabusData['decode_error'])) {
-             // Send back the specific decode error details
-             sendError('Failed to decode syllabus JSON. Error: ' . $syllabusData['error_message'] . ' (Code: ' . $syllabusData['error_code'] . '). Content starts: ' . htmlspecialchars(substr($syllabusData['raw_content_start'], 0, 100)) . '...', 500);
-         } elseif (isset($syllabusData['type_error'])) {
-              // Send back the specific type error details
-             sendError('Decoded syllabus data was not the expected array type. Got: ' . $syllabusData['actual_type'] . '. Content starts: ' . htmlspecialchars(substr($syllabusData['raw_content_start'], 0, 100)) . '...', 500);
-         } elseif (isset($syllabusData['error'])) {
-            // Handle other file read errors
-            sendError($syllabusData['error'], $syllabusData['code']);
-        } else {
-            // Success - send the syllabus array
-            sendSuccess(['syllabus' => $syllabusData]);
+        if ($method !== 'GET') sendError('Invalid request method for get_syllabus.', 405);
+
+        $syllabusStructure = [];
+        try {
+            // Fetch all subjects
+            $subjectStmt = $pdo->query("SELECT subject_id, subject_name, description FROM SUBJECTS ORDER BY subject_id"); // Add ordering if needed
+            $subjects = $subjectStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Prepare statements for units and topics
+            $unitStmt = $pdo->prepare("SELECT unit_id, unit_name FROM UNITS WHERE subject_id = :subject_id ORDER BY order_index, unit_id");
+            $topicStmt = $pdo->prepare("SELECT topic_id, topic_name FROM TOPICS WHERE unit_id = :unit_id ORDER BY order_index, topic_id"); // Simplified for now
+
+            foreach ($subjects as $subject) {
+                $subjectData = [
+                    'subjectId' => $subject['subject_id'], // Match frontend expected key? Check script.js if needed
+                    'subjectName' => $subject['subject_name'],
+                    'units' => []
+                ];
+
+                // Fetch units for this subject
+                $unitStmt->execute([':subject_id' => $subject['subject_id']]);
+                $units = $unitStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                foreach ($units as $unit) {
+                    $unitData = [
+                        'unitId' => $unit['unit_id'], // Match frontend expected key?
+                        'unitName' => $unit['unit_name'],
+                        'topics' => []
+                    ];
+
+                    // Fetch topics for this unit
+                    $topicStmt->execute([':unit_id' => $unit['unit_id']]);
+                    $topics = $topicStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    // Basic topic structure - doesn't handle subTopics from JSON directly yet
+                    // If subTopics need to be represented, the DB schema and this query need adjustment
+                    foreach ($topics as $topic) {
+                         $unitData['topics'][] = [
+                             'topicId' => $topic['topic_id'], // Match frontend expected key?
+                             'topicName' => $topic['topic_name']
+                             // Add other fields like content_url etc. if needed by frontend
+                         ];
+                    }
+                    $subjectData['units'][] = $unitData;
+                }
+                $syllabusStructure[] = $subjectData;
+            }
+
+            sendSuccess(['syllabus' => $syllabusStructure]);
+
+        } catch (PDOException $e) {
+            error_log("Database Error (Get Syllabus): " . $e->getMessage());
+            sendError('Database error fetching syllabus.', 500);
         }
-         break; // End get_syllabus case
+        break; // End get_syllabus case
 
     default:
         sendError('Invalid action specified.', 404);
