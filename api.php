@@ -202,6 +202,132 @@ switch ($action) {
         sendSuccess(['message' => 'Score processed successfully.']); // Changed message slightly
         break; // End update_score case
 
+
+    case 'get_user_progress':
+        // Fetch progress for the logged-in user
+        if ($method !== 'GET') sendError('Invalid request method for get_user_progress.', 405);
+        if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) sendError('User not logged in.', 401);
+
+        $username = $_SESSION['username'];
+        $progressData = [];
+        try {
+            // Get user_id first
+            $userStmt = $pdo->prepare("SELECT user_id FROM USERS WHERE username = :username");
+            $userStmt->execute([':username' => $username]);
+            $user = $userStmt->fetch();
+
+            if (!$user) {
+                 sendError('User not found.', 404); // Should not happen if session is valid
+            }
+            $userId = $user['user_id'];
+
+            // Fetch all progress entries for this user
+            $stmt = $pdo->prepare("SELECT topic_id, status FROM USER_PROGRESS WHERE user_id = :user_id");
+            $stmt->execute([':user_id' => $userId]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Format as { topic_id: status } for the frontend
+            foreach ($results as $row) {
+                $progressData[$row['topic_id']] = $row['status'];
+            }
+
+        } catch (PDOException $e) {
+            error_log("Database Error (Get User Progress): " . $e->getMessage());
+            sendError('Database error fetching user progress.', 500);
+        }
+        sendSuccess(['progress' => $progressData]);
+        break; // End get_user_progress case
+
+    case 'update_topic_status':
+        // Update a single topic's status and recalculate/update leaderboard score
+        if ($method !== 'POST') sendError('Invalid request method for update_topic_status.', 405);
+        if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true || !isset($_SESSION['username'])) sendError('User not logged in.', 401);
+
+        $username = $_SESSION['username'];
+        $topicId = $input['topicId'] ?? null;
+        $newStatus = $input['status'] ?? null;
+
+        // Basic validation (add more robust status validation if needed)
+        $allowedStatuses = ['not_started', 'reviewing', 'practicing', 'confident', 'mastered']; // Use statusOrder from JS if possible
+        if ($topicId === null || $newStatus === null || !in_array($newStatus, $allowedStatuses)) {
+             sendError('Missing or invalid topicId or status.', 400);
+        }
+
+        try {
+            // Get user_id
+            $userStmt = $pdo->prepare("SELECT user_id FROM USERS WHERE username = :username");
+            $userStmt->execute([':username' => $username]);
+            $user = $userStmt->fetch();
+            if (!$user) sendError('User not found.', 404);
+            $userId = $user['user_id'];
+
+            // Check if topic exists (optional but good practice)
+            $topicStmt = $pdo->prepare("SELECT COUNT(*) FROM TOPICS WHERE topic_id = :topic_id");
+            $topicStmt->execute([':topic_id' => $topicId]);
+            if ($topicStmt->fetchColumn() == 0) sendError('Invalid topicId.', 400);
+
+            // Update or Insert the progress status
+            $stmt = $pdo->prepare("
+                INSERT INTO USER_PROGRESS (user_id, topic_id, status, completed_at, last_accessed)
+                VALUES (:user_id, :topic_id, :status, :completed_at, NOW())
+                ON DUPLICATE KEY UPDATE
+                    status = VALUES(status),
+                    completed_at = VALUES(completed_at),
+                    last_accessed = NOW()
+            ");
+            // Use status values from JS statusLevels map
+            $completedAt = ($newStatus === 'mastered') ? date('Y-m-d H:i:s') : null; // Set completion time only if status is 'mastered'
+            $stmt->execute([
+                ':user_id' => $userId,
+                ':topic_id' => $topicId,
+                ':status' => $newStatus,
+                ':completed_at' => $completedAt
+            ]);
+
+            // --- Recalculate and Update Leaderboard Score ---
+            // Define status scores (should match JS statusLevels values)
+            $statusScores = [
+                 'not_started' => 0,
+                 'reviewing' => 2,
+                 'practicing' => 5,
+                 'confident' => 8,
+                 'mastered' => 10
+             ];
+
+            // Fetch all current statuses for the user
+            $progressStmt = $pdo->prepare("SELECT status FROM USER_PROGRESS WHERE user_id = :user_id");
+            $progressStmt->execute([':user_id' => $userId]);
+            $allStatuses = $progressStmt->fetchAll(PDO::FETCH_COLUMN);
+
+            // Calculate total score
+            $totalScore = 0;
+            foreach ($allStatuses as $status) {
+                $totalScore += $statusScores[$status] ?? 0;
+            }
+
+            // Update leaderboard
+            $lbStmt = $pdo->prepare("
+                INSERT INTO LEADERBOARD (user_id, total_score, last_updated)
+                VALUES (:user_id, :score, NOW())
+                ON DUPLICATE KEY UPDATE
+                    total_score = VALUES(total_score),
+                    last_updated = NOW()
+            ");
+             // Note: This leaderboard update assumes overall score. Subject-specific would need subject_id.
+             // It overwrites the score. If only higher scores should count, logic needs adjustment.
+            $lbStmt->execute([
+                ':user_id' => $userId,
+                ':score' => $totalScore
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Database Error (Update Topic Status): " . $e->getMessage());
+            sendError('Database error updating topic status.', 500);
+        }
+
+        sendSuccess(['message' => 'Topic status updated successfully.']);
+        break; // End update_topic_status case
+
     case 'get_syllabus':
         if ($method !== 'GET') sendError('Invalid request method for get_syllabus.', 405);
 
