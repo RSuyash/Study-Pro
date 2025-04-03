@@ -6,6 +6,7 @@ subject.json
 
 # Ignore sensitive files if any (add specific files if needed)
 # e.g., config.php
+db_config.php
 
 # Ignore OS generated files
 .DS_Store

@@ -7,11 +7,13 @@ session_start([
 
 header('Content-Type: application/json');
 
+// Include the database connection script which defines $pdo
+require_once 'includes/database.php'; // $pdo is now available
+
 // Define the path to the data directory, one level above the script's directory
 // Construct path from document root - adjust 'Study-Pro-App' if needed
+// Keep subject file logic for now
 $dataDir = $_SERVER['DOCUMENT_ROOT'] . '/Study-Pro-App/data/';
-$leaderboardFile = $dataDir . 'leaderboard.json';
-$usersFile = $dataDir . 'users.json';
 $subjectFile = $dataDir . 'subject.json'; // Syllabus file path
 
 // --- Helper Functions ---
@@ -180,25 +182,38 @@ switch ($action) {
         if (empty($password) || strlen($password) < 6) sendError('Password must be at least 6 characters.');
         if ($password !== $confirmPassword) sendError('Passwords do not match.');
 
-        $users = readJsonFile($usersFile);
-        if (isset($users['error'])) sendError($users['error'], $users['code']);
-
-        foreach ($users as $user) {
-            if (isset($user['username']) && strcasecmp($user['username'], $username) === 0) sendError('Username already taken.');
-            if (isset($user['email']) && strcasecmp($user['email'], $email) === 0) sendError('Email already registered.');
+        // Check if username or email already exists in the database
+        try {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :username OR email = :email");
+            $stmt->execute([':username' => $username, ':email' => $email]);
+            if ($stmt->fetchColumn() > 0) {
+                sendError('Username or Email already registered.');
+            }
+        } catch (PDOException $e) {
+            error_log("Database Error (Register Check): " . $e->getMessage());
+            sendError('Database error during registration check.', 500);
         }
 
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
         if ($passwordHash === false) sendError('Failed to hash password.', 500);
 
-        $newUser = [
-            'username' => $username, 'email' => $email,
-            'password_hash' => $passwordHash, 'registered_at' => date('c')
-        ];
-        $users[] = $newUser;
-
-        $writeResult = writeJsonFile($usersFile, $users);
-        if (isset($writeResult['error'])) sendError($writeResult['error'], $writeResult['code']);
+        // Insert the new user into the database
+        try {
+            $stmt = $pdo->prepare("INSERT INTO users (username, email, password_hash, registered_at) VALUES (:username, :email, :password_hash, NOW())");
+            $stmt->execute([
+                ':username' => $username,
+                ':email' => $email,
+                ':password_hash' => $passwordHash
+            ]);
+        } catch (PDOException $e) {
+            error_log("Database Error (Register Insert): " . $e->getMessage());
+            // Check for duplicate entry error code (e.g., 23000 for SQLSTATE)
+             if ($e->getCode() == 23000) {
+                 sendError('Username or Email already exists.', 409); // Conflict
+             } else {
+                 sendError('Database error during registration.', 500);
+             }
+        }
 
         sendSuccess(['message' => 'Registration successful. Please login.']);
         break; // End register case
@@ -210,14 +225,15 @@ switch ($action) {
 
         if (empty($loginIdentifier) || empty($password)) sendError('Username/Email and password are required.');
 
-        $users = readJsonFile($usersFile);
-        if (isset($users['error'])) sendError($users['error'], $users['code']);
-
+        // Fetch user from database by username or email
         $foundUser = null;
-        foreach ($users as $user) {
-            if ((isset($user['username']) && strcasecmp($user['username'], $loginIdentifier) === 0) || (isset($user['email']) && strcasecmp($user['email'], $loginIdentifier) === 0)) {
-                $foundUser = $user; break;
-            }
+        try {
+            $stmt = $pdo->prepare("SELECT username, email, password_hash FROM users WHERE username = :identifier OR email = :identifier");
+            $stmt->execute([':identifier' => $loginIdentifier]);
+            $foundUser = $stmt->fetch(PDO::FETCH_ASSOC); // Fetch associative array
+        } catch (PDOException $e) {
+            error_log("Database Error (Login Fetch): " . $e->getMessage());
+            sendError('Database error during login.', 500);
         }
 
         if (!$foundUser || !isset($foundUser['password_hash'])) sendError('Invalid username/email or password.');
@@ -253,9 +269,16 @@ switch ($action) {
 
     case 'get_leaderboard':
         if ($method !== 'GET') sendError('Invalid request method for get_leaderboard.', 405);
-        $leaderboard = readJsonFile($leaderboardFile);
-        if (isset($leaderboard['error'])) sendError($leaderboard['error'], $leaderboard['code']);
-        usort($leaderboard, fn($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
+        // Fetch leaderboard from database
+        $leaderboard = [];
+        try {
+            // Fetch top N scores, e.g., top 100, or all if needed
+            $stmt = $pdo->query("SELECT username, score FROM leaderboard ORDER BY score DESC LIMIT 100");
+            $leaderboard = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Database Error (Get Leaderboard): " . $e->getMessage());
+            sendError('Database error fetching leaderboard.', 500);
+        }
         sendSuccess(['leaderboard' => $leaderboard]);
         break; // End get_leaderboard case
 
@@ -269,28 +292,28 @@ switch ($action) {
         if (!is_numeric($score) || $score < 0) sendError('Invalid score provided.');
         $score = (int)$score;
 
-        $leaderboard = readJsonFile($leaderboardFile);
-        if (isset($leaderboard['error'])) sendError($leaderboard['error'], $leaderboard['code']);
+        // Update or insert score in the database
+        try {
+            // Use INSERT ... ON DUPLICATE KEY UPDATE to handle both cases atomically
+            // Assumes 'username' is a UNIQUE key in the leaderboard table
+            $stmt = $pdo->prepare("
+                INSERT INTO leaderboard (username, score, last_updated)
+                VALUES (:username, :score, NOW())
+                ON DUPLICATE KEY UPDATE
+                    score = IF(VALUES(score) > score, VALUES(score), score),
+                    last_updated = NOW()
+            ");
+            $stmt->execute([
+                ':username' => $username,
+                ':score' => $score
+            ]);
+            // Check if any row was actually changed (inserted or updated)
+            // $updated = $stmt->rowCount() > 0; // rowCount is unreliable for ON DUPLICATE KEY UPDATE in some drivers/versions
+            // We can assume success if no exception occurred for this logic.
 
-        $userFound = false; $updated = false;
-        foreach ($leaderboard as $key => $entry) {
-            if (isset($entry['username']) && strcasecmp($entry['username'], $username) === 0) {
-                if (!isset($entry['score']) || $score > $entry['score']) {
-                     $leaderboard[$key]['score'] = $score; $updated = true;
-                }
-                $userFound = true; break;
-            }
-        }
-
-        if (!$userFound) {
-            $leaderboard[] = ['username' => $username, 'score' => $score]; $updated = true;
-        }
-
-        // Only write if data actually changed
-        if ($updated) {
-            usort($leaderboard, fn($a, $b) => ($b['score'] ?? 0) <=> ($a['score'] ?? 0));
-            $writeResult = writeJsonFile($leaderboardFile, $leaderboard);
-            if (isset($writeResult['error'])) sendError($writeResult['error'], $writeResult['code']);
+        } catch (PDOException $e) {
+            error_log("Database Error (Update Score): " . $e->getMessage());
+            sendError('Database error updating score.', 500);
         }
 
         sendSuccess(['message' => 'Score processed successfully.']); // Changed message slightly
