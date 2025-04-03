@@ -1,4 +1,12 @@
 <?php
+// --- DEBUGGING: Display errors - REMOVE FOR PRODUCTION ---
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+// --- END DEBUGGING ---
+
+
+// Original <?php tag removed
 // Start session BEFORE any output
 session_start([
     'cookie_lifetime' => 86400, // 1 day session lifetime
