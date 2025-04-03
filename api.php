@@ -50,17 +50,30 @@ function readJsonFile($file) {
             $jsonErrorCode = json_last_error();
 
             if ($jsonErrorCode !== JSON_ERROR_NONE) {
-                // Log the specific JSON error
-                error_log("JSON Decode Error Code: " . $jsonErrorCode . " - Message: " . json_last_error_msg() . " in file: " . $file);
-                $data = ['error' => 'Error decoding JSON data. Code: ' . $jsonErrorCode, 'code' => 500];
+                // Return error details including the raw content start for debugging
+                $errorMessage = json_last_error_msg();
+                error_log("JSON Decode Error Code: " . $jsonErrorCode . " - Message: " . $errorMessage . " in file: " . $file);
+                // Return a specific structure indicating decode failure
+                return [
+                    'decode_error' => true,
+                    'error_code' => $jsonErrorCode,
+                    'error_message' => $errorMessage,
+                    'raw_content_start' => substr($content_cleaned, 0, 200) // Send back start of content
+                ];
             } else {
-                 // Log success and type check
-                 error_log("JSON decoded successfully for file: " . $file . ". Type: " . gettype($decodedData));
-                 $data = is_array($decodedData) ? $decodedData : [];
-                 // If it decoded but wasn't an array, log that too
+                 // Check if the decoded data is actually an array
                  if (!is_array($decodedData)) {
-                     error_log("Decoded JSON was not an array for file: " . $file);
+                     error_log("Decoded JSON was not an array for file: " . $file . ". Type: " . gettype($decodedData));
+                     // Return a specific structure indicating type mismatch
+                     return [
+                         'type_error' => true,
+                         'actual_type' => gettype($decodedData),
+                         'raw_content_start' => substr($content_cleaned, 0, 200) // Send back start of content
+                     ];
                  }
+                 // Success, it's an array
+                 error_log("JSON decoded successfully as array for file: " . $file);
+                 $data = $decodedData;
             }
         }
         // If content was empty or JSON was invalid (and reset to error), $data remains empty array or error structure
@@ -280,11 +293,19 @@ switch ($action) {
          $syllabusData = readJsonFile($subjectFile);
          if (isset($syllabusData['not_found'])) { // Check specific key for missing file
               sendSuccess(['syllabus' => []]); // Send empty syllabus if file not found
+         } elseif (isset($syllabusData['decode_error'])) {
+             // Send back the specific decode error details
+             sendError('Failed to decode syllabus JSON. Error: ' . $syllabusData['error_message'] . ' (Code: ' . $syllabusData['error_code'] . '). Content starts: ' . htmlspecialchars(substr($syllabusData['raw_content_start'], 0, 100)) . '...', 500);
+         } elseif (isset($syllabusData['type_error'])) {
+              // Send back the specific type error details
+             sendError('Decoded syllabus data was not the expected array type. Got: ' . $syllabusData['actual_type'] . '. Content starts: ' . htmlspecialchars(substr($syllabusData['raw_content_start'], 0, 100)) . '...', 500);
          } elseif (isset($syllabusData['error'])) {
-             sendError($syllabusData['error'], $syllabusData['code']);
-         } else {
-             sendSuccess(['syllabus' => $syllabusData]);
-         }
+            // Handle other file read errors
+            sendError($syllabusData['error'], $syllabusData['code']);
+        } else {
+            // Success - send the syllabus array
+            sendSuccess(['syllabus' => $syllabusData]);
+        }
          break; // End get_syllabus case
 
     default:
