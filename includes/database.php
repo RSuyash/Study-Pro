@@ -15,15 +15,21 @@ if (!file_exists($configPath)) {
 
 // Include the database configuration
 // This file should define $db_host, $db_name, $db_user, $db_pass
-require_once $configPath;
+$config = require $configPath; // Use require to get the returned array
 
-// Check if required variables are defined after including the file
-if (!isset($db_host) || !isset($db_name) || !isset($db_user) || !isset($db_pass)) {
-    error_log("Database configuration variables missing in: " . $configPath);
+// Check if required keys exist in the returned array
+if (!isset($config['host']) || !isset($config['dbname']) || !isset($config['user']) || !isset($config['password'])) {
+    error_log("Database configuration keys missing in array returned by: " . $configPath);
     http_response_code(500);
-    echo json_encode(['error' => 'Server configuration error (missing variables). Please contact administrator.']);
+    echo json_encode(['error' => 'Server configuration error (missing config keys). Please contact administrator.']);
     exit;
 }
+
+// Assign variables from the config array
+$db_host = $config['host'];
+$db_name = $config['dbname'];
+$db_user = $config['user'];
+$db_pass = $config['password'];
 
 $dsn = "mysql:host={$db_host};dbname={$db_name};charset=utf8mb4";
 $options = [
