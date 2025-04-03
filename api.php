@@ -61,19 +61,26 @@ function readJsonFile($file) {
                     'raw_content_start' => substr($content_cleaned, 0, 200) // Send back start of content
                 ];
             } else {
-                 // Check if the decoded data is actually an array
-                 if (!is_array($decodedData)) {
+                 // Explicitly check if decode resulted in null, even if no error code set
+                 if ($decodedData === null && $content_cleaned !== 'null') {
+                      error_log("json_decode returned null despite no error code for file: " . $file);
+                      return [
+                          'decode_error' => true, 'error_code' => $jsonErrorCode, // Might be 0 (JSON_ERROR_NONE)
+                          'error_message' => 'json_decode returned null, possibly due to invalid structure or depth limit.',
+                          'raw_content_start' => substr($content_cleaned, 0, 200)
+                      ];
+                 } elseif (!is_array($decodedData)) {
+                     // Decoded successfully but is not an array
                      error_log("Decoded JSON was not an array for file: " . $file . ". Type: " . gettype($decodedData));
-                     // Return a specific structure indicating type mismatch
                      return [
-                         'type_error' => true,
-                         'actual_type' => gettype($decodedData),
-                         'raw_content_start' => substr($content_cleaned, 0, 200) // Send back start of content
+                         'type_error' => true, 'actual_type' => gettype($decodedData),
+                         'raw_content_start' => substr($content_cleaned, 0, 200)
                      ];
+                 } else {
+                    // Success, it's an array
+                    error_log("JSON decoded successfully as array for file: " . $file);
+                    $data = $decodedData;
                  }
-                 // Success, it's an array
-                 error_log("JSON decoded successfully as array for file: " . $file);
-                 $data = $decodedData;
             }
         }
         // If content was empty or JSON was invalid (and reset to error), $data remains empty array or error structure
