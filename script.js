@@ -520,30 +520,101 @@ document.addEventListener('DOMContentLoaded', async () => { // Make listener asy
     function clearChartCanvas(canvas) { if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); } }
     function renderDashboardCharts() {
         destroyCharts(); if (!currentUser || !unitProgressChartCanvas || !statusDistributionChartCanvas) return;
-        try { /* renderUnitProgressChart(); */ renderStatusDistributionChart(); } // Commented out unit chart call
+        try { renderUnitProgressChart(); renderStatusDistributionChart(); } // Re-enabled unit chart call
         catch (error) { console.error("Error rendering charts:", error); }
     }
-    // function renderUnitProgressChart() {
-    //     // This chart needs rethinking for the new hierarchical structure.
-    //     // Maybe show progress per subject or top-level units across subjects.
-    //     // For now, it's disabled.
-    //     const unitData = syllabusConfig.map(subject => {
-    //         // Example: Calculate progress per subject (needs refinement)
-    //         let subjectTopics = [];
-    //         subject.units.forEach(unit => {
-    //             unit.topics.forEach(topic => {
-    //                 subjectTopics.push(topic);
-    //                 if(topic.subTopics) subjectTopics = subjectTopics.concat(topic.subTopics);
-    //             });
-    //         });
-    //         const score = subjectTopics.reduce((s, t) => s + (statusLevels[userProgress[t.topicId] || 'not_started']?.value || 0), 0);
-    //         const maxScore = subjectTopics.length * statusLevels.mastered.value;
-    //         const progress = maxScore > 0 ? (score / maxScore) * 100 : 0;
-    //         return { name: subject.subjectName, progress };
-    //     });
-    //     // const ctx = unitProgressChartCanvas.getContext('2d');
-    //     // unitProgressChartInstance = new Chart(ctx, { ... });
-    // }
+    function renderUnitProgressChart() {
+        if (!syllabusConfig || !unitProgressChartCanvas) return; // Ensure config and canvas exist
+
+        const subjectProgressData = syllabusConfig.map(subject => {
+            // Get all topic IDs for this subject recursively
+            const subjectTopicIds = getAllTopicsRecursive([subject]).map(t => t.id);
+
+            // Calculate current score and max possible score for this subject
+            let currentSubjectScore = 0;
+            subjectTopicIds.forEach(topicId => {
+                currentSubjectScore += statusLevels[userProgress[topicId] || 'not_started']?.value || 0;
+            });
+            const maxSubjectScore = subjectTopicIds.length * statusLevels.mastered.value;
+
+            // Calculate progress percentage
+            const progress = maxSubjectScore > 0 ? Math.round((currentSubjectScore / maxSubjectScore) * 100) : 0;
+
+            return {
+                name: subject.subjectName,
+                progress: progress
+            };
+        });
+
+        // Prepare data for Chart.js
+        const labels = subjectProgressData.map(s => s.name);
+        const data = subjectProgressData.map(s => s.progress);
+
+        // Color definitions moved below
+        // Define a slightly more varied color palette
+        const baseColors = [
+            'rgba(54, 162, 235, 0.7)', // Blue
+            'rgba(255, 99, 132, 0.7)', // Red
+            'rgba(75, 192, 192, 0.7)', // Green
+            'rgba(255, 206, 86, 0.7)', // Yellow
+            'rgba(153, 102, 255, 0.7)', // Purple
+            'rgba(255, 159, 64, 0.7)'  // Orange
+        ];
+        const backgroundColors = labels.map((_, i) => baseColors[i % baseColors.length]);
+        const borderColors = backgroundColors.map(color => color.replace('0.7', '1')); // Make border solid version
+
+        const ctx = unitProgressChartCanvas.getContext('2d');
+        unitProgressChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Progress', // Simplified label for tooltip
+                    data: data,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1,
+                    barThickness: 'flex', // Adjust bar thickness
+                    maxBarThickness: 40 // Max thickness
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Keep horizontal bars
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: { display: true, text: 'Progress (%)', font: { size: 12 } },
+                        ticks: { stepSize: 20 } // Adjust tick steps
+                    },
+                    y: {
+                         title: { display: false } // Remove Y-axis title, labels are clear
+                    }
+                },
+                plugins: {
+                    legend: { display: false }, // Keep legend hidden
+                    tooltip: {
+                        callbacks: {
+                            // Display Subject Name and Percentage in tooltip
+                            label: function(context) {
+                                let label = context.label || '';
+                                let value = context.parsed.x || 0;
+                                return `${label}: ${value}%`;
+                            }
+                        }
+                    },
+                    title: { // Add a title to this chart too
+                         display: true,
+                         text: 'Progress per Subject',
+                         padding: { top: 10, bottom: 10 },
+                         font: { size: 14 }
+                    }
+                }
+            }
+        });
+    }
     function renderStatusDistributionChart() {
         const counts = statusOrder.map(key => ({ status: statusLevels[key].label, count: 0, color: statusLevels[key].color }));
         allTopics.forEach(topic => { const idx = statusOrder.indexOf(userProgress[topic.id] || 'not_started'); if (idx !== -1) counts[idx].count++; });

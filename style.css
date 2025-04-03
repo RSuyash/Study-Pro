@@ -1,6 +1,6 @@
 /* --- Base Styles & Variables --- */
 :root {
-    --bg-color: #f4f7f6;
+    --bg-color: #f8f9fa; /* Slightly lighter background */
     --primary-text: #333;
     --secondary-text: #667;
     --accent-color: #007bff;
@@ -102,7 +102,7 @@ body {
 
 /* --- Main Application Container --- */
 #app-container {
-    max-width: 1400px; margin: 20px auto; padding: 0 20px 20px 20px;
+    max-width: 1400px; margin: 0 auto; /* Remove top margin */ padding: 0 25px 25px 25px; /* Adjust padding */
     background-color: transparent; flex-grow: 1; display: flex; flex-direction: column; width: 100%;
 }
 .hidden { display: none !important; }
@@ -132,18 +132,18 @@ header h1 {
 
 /* --- Top Navigation --- */
 .top-nav {
-    display: flex; background-color: #e9ecef; padding: 10px 20px; margin-bottom: 25px;
+    display: flex; background-color: var(--header-bg); /* Match header bg */ padding: 0 25px; /* Align with header/section padding */ margin-bottom: 25px;
     border-radius: 0 0 var(--border-radius) var(--border-radius); box-shadow: var(--shadow-sm);
-    gap: 10px; overflow-x: auto;
+    gap: 5px; /* Reduce gap slightly */ overflow-x: auto; border-top: 1px solid var(--card-border); /* Add top border */
 }
 .nav-button {
-    padding: 10px 20px; font-size: 1em; font-weight: 500; color: var(--secondary-text);
-    background-color: transparent; border: none; border-radius: 5px; cursor: pointer;
-    transition: background-color 0.2s ease, color 0.2s ease; display: inline-flex;
-    align-items: center; gap: 8px; white-space: nowrap;
+    padding: 12px 18px; /* Adjust padding */ font-size: 1em; font-weight: 500; color: var(--secondary-text);
+    background-color: transparent; border: none; border-radius: 5px; cursor: pointer; border-bottom: 3px solid transparent; /* Add space for active indicator */
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; display: inline-flex;
+    align-items: center; gap: 8px; white-space: nowrap; margin-bottom: -1px; /* Overlap border slightly */
 }
 .nav-button:hover { background-color: rgba(0, 0, 0, 0.05); color: var(--primary-text); }
-.nav-button.active { background-color: var(--accent-color); color: white; }
+.nav-button.active { color: var(--accent-color); border-bottom-color: var(--accent-color); font-weight: 600; }
 .nav-button i { font-size: 1.1em; }
 
 /* --- Main Content Area & Views --- */
@@ -165,14 +165,66 @@ section h2 {
 
 /* --- Dashboard View Specific Styles --- */
 #view-dashboard .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 25px; }
-.stat-card { background-color: var(--bg-color); padding: 15px; border-radius: 5px; border: 1px solid var(--card-border); text-align: center; }
-.stat-card h3 { font-size: 0.9em; color: var(--secondary-text); margin-bottom: 8px; font-weight: 500; text-transform: uppercase; }
-.stat-card p { font-size: 1.8em; font-weight: 600; color: var(--accent-color); }
+.stat-card {
+    background-color: var(--card-bg); /* Use card background */
+    padding: 20px; /* Increase padding */
+    border-radius: var(--border-radius); /* Use main border radius */
+    border: 1px solid var(--card-border);
+    text-align: left; /* Align text left */
+    box-shadow: var(--shadow-sm); /* Add subtle shadow */
+    display: flex; /* Use flexbox for alignment */
+    flex-direction: column; /* Stack elements vertically */
+    justify-content: space-between; /* Space out title and value */
+}
+.stat-card h3 {
+    font-size: 0.95em; /* Slightly larger title */
+    color: var(--secondary-text);
+    margin-bottom: 12px; /* Increase space below title */
+    font-weight: 500;
+    text-transform: uppercase;
+    display: flex; /* Align icon and text */
+    align-items: center;
+    gap: 8px; /* Space between icon and text */
+}
+.stat-card h3 .icon { /* Style the icon specifically */
+    font-size: 1.2em; /* Make icon slightly larger */
+    color: var(--accent-color); /* Use accent color for icon */
+    width: 20px; /* Fixed width for alignment */
+    text-align: center;
+}
+.stat-card p {
+    font-size: 2em; /* Larger stat value */
+    font-weight: 600;
+    color: var(--primary-text); /* Use primary text color */
+    margin-top: auto; /* Push value to bottom if card height varies */
+    text-align: right; /* Align value to the right */
+}
 .charts-container { display: grid; grid-template-columns: 1fr; gap: 20px; }
 @media (min-width: 768px) { .charts-container { grid-template-columns: 1fr 1fr; } }
-.chart-card { background-color: var(--bg-color); padding: 15px; border-radius: var(--border-radius); border: 1px solid var(--card-border); box-shadow: var(--shadow-sm); }
-.chart-card h3 { text-align: center; font-size: 1.1em; color: var(--primary-text); margin-bottom: 15px; font-weight: 500; }
-.chart-wrapper { position: relative; height: 250px; width: 100%; }
+.chart-card {
+    background-color: var(--card-bg); /* Use card background */
+    padding: 20px 25px; /* Increase padding */
+    border-radius: var(--border-radius);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow-md); /* Slightly stronger shadow */
+    display: flex; /* Use flex for layout */
+    flex-direction: column;
+}
+.chart-card h3 { /* Title inside chart card */
+    text-align: left; /* Align title left */
+    font-size: 1.1em;
+    color: var(--primary-text);
+    margin-bottom: 20px; /* More space below title */
+    font-weight: 600; /* Slightly bolder */
+    padding-bottom: 10px; /* Add padding below */
+    border-bottom: 1px solid var(--card-border); /* Add separator line */
+}
+.chart-wrapper {
+    position: relative;
+    height: 300px; /* Increase default height */
+    width: 100%;
+    flex-grow: 1; /* Allow wrapper to grow */
+}
 
 /* --- Leaderboard View Specific Styles --- */
 #view-leaderboard #leaderboard-container { max-height: 500px; overflow-y: auto; margin-bottom: 15px; }
@@ -209,53 +261,91 @@ section h2 {
 @media (min-width: 768px) { .topic-unit ul { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 1200px) { .topic-unit ul { grid-template-columns: repeat(3, 1fr); } }
 .topic-card {
-    background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--border-radius);
-    padding: 15px; box-shadow: var(--shadow-sm); transition: box-shadow 0.2s ease, transform 0.2s ease;
-    display: flex; flex-direction: column; gap: 12px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--border-radius);
+    padding: 18px 20px; /* Slightly more padding */
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Increased gap */
 }
-.topic-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.topic-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); } /* Slightly more hover effect */
 .topic-header { }
-.topic-name { font-size: 1.0em; font-weight: 500; margin-bottom: 5px; display: block; }
+.topic-name { font-size: 1.05em; font-weight: 500; margin-bottom: 5px; display: block; color: var(--primary-text); } /* Ensure primary color */
 .sub-topic .topic-name { padding-left: 20px; font-size: 0.95em; position: relative; }
 .sub-topic .topic-name::before { content: '↳'; position: absolute; left: 5px; top: 0; color: var(--secondary-text); font-size: 1.1em; }
-.topic-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-top: 1px solid var(--card-border); padding-top: 12px; margin-top: auto; }
-.status-button {
-    padding: 4px 9px; border: 1px solid var(--card-border); border-radius: 15px; cursor: pointer; font-size: 0.75em;
-    background-color: #f0f0f0; color: #555; transition: all 0.2s ease; white-space: nowrap; flex-grow: 1; text-align: center;
+.topic-controls {
+    display: grid; /* Use grid for consistent button sizing */
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); /* Responsive columns */
+    gap: 8px; /* Increased gap */
+    align-items: center;
+    border-top: 1px solid var(--card-border);
+    padding-top: 15px; /* Increased padding */
+    margin-top: auto; /* Push controls to bottom */
 }
-.status-button:hover:not(.active) { background-color: #e0e0e0; border-color: #ccc; }
-.status-button.active { font-weight: bold; cursor: default; }
+.status-button {
+    padding: 6px 10px; /* Slightly larger padding */
+    border: 1px solid var(--card-border);
+    border-radius: 5px; /* Match other buttons */
+    cursor: pointer;
+    font-size: 0.8em; /* Slightly larger font */
+    background-color: #f0f0f0;
+    color: #555;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    text-align: center;
+    font-weight: 500; /* Slightly bolder */
+}
+.status-button:hover:not(.active) {
+    background-color: #e9ecef; /* Lighter hover */
+    border-color: #adb5bd;
+    transform: translateY(-1px); /* Subtle lift */
+}
+.status-button.active {
+    font-weight: 600; /* Bolder active state */
+    color: white !important; /* Ensure text is white */
+    cursor: default;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); /* Inner shadow for active */
+}
 
 /* --- Hierarchical Syllabus Styles --- */
 .subject-container { margin-bottom: 30px; }
 .subject-title {
-    font-size: 1.6em;
+    font-size: 1.7em; /* Larger subject title */
     font-weight: 600;
-    color: var(--accent-color);
-    margin-bottom: 15px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--accent-color);
+    color: var(--primary-text); /* Use primary text, border provides accent */
+    margin-bottom: 20px; /* More space below */
+    padding-bottom: 10px;
+    border-bottom: 3px solid var(--accent-color); /* Thicker accent border */
 }
 .unit-details { margin-bottom: 15px; }
 .unit-summary {
-    font-size: 1.2em;
+    font-size: 1.25em; /* Slightly larger unit title */
     font-weight: 500;
     cursor: pointer;
-    padding: 10px;
-    background-color: var(--bg-color);
+    padding: 12px 15px 12px 35px; /* Adjust padding */
+    background-color: #e9ecef; /* Slightly different background */
     border: 1px solid var(--card-border);
-    border-radius: 5px;
+    border-radius: var(--border-radius); /* Consistent radius */
     margin-bottom: 10px;
-    list-style: none; /* Remove default marker */
+    list-style: none;
     position: relative;
-    padding-left: 30px;
+    transition: background-color 0.2s ease;
+}
+.unit-summary:hover {
+    background-color: #dfe3e6;
 }
 .unit-summary::before { /* Custom marker */
     content: '\25B6'; /* Right-pointing triangle */
     position: absolute;
-    left: 10px;
+    left: 12px; /* Adjust position */
     top: 50%;
     transform: translateY(-50%);
+    transition: transform 0.2s ease;
+    font-size: 0.9em; /* Slightly larger icon */
+    color: var(--secondary-text);
     transition: transform 0.2s ease;
     font-size: 0.8em;
 }
@@ -264,8 +354,8 @@ section h2 {
 }
 .unit-content {
     padding-left: 15px;
-    border-left: 2px solid var(--card-border);
-    margin-left: 5px; /* Align with summary padding */
+    border-left: 3px solid #e9ecef; /* Match summary bg, thicker */
+    margin-left: 10px; /* Adjust alignment */
     display: grid;
     grid-template-columns: 1fr;
     gap: 15px;
