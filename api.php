@@ -38,7 +38,10 @@ function readJsonFile($file) {
         flock($fp, LOCK_UN);
 
         if (!empty($content)) {
-            $decodedData = json_decode($content, true);
+            // Remove potential UTF-8 BOM before decoding
+            $bom = pack('H*','EFBBBF');
+            $content_cleaned = preg_replace("/^$bom/", '', $content);
+            $decodedData = json_decode($content_cleaned, true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 // Log error for debugging server-side
                 error_log("Error decoding JSON: " . json_last_error_msg() . " in file: " . $file);
